@@ -1,6 +1,7 @@
 from ast import main
 
 from langchain_community.document_loaders import DirectoryLoader, UnstructuredFileLoader
+from langchain_experimental.text_splitter import SemanticChunker
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.prompts import ChatPromptTemplate
@@ -37,14 +38,17 @@ def rag_chatbot() :
         "",
     ]
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size = 1200,
-        chunk_overlap = 200,
-        add_start_index = True,
-        strip_whitespace = True,
-        separators = MARKDOWN_SEPARATORS
+    # text_splitter = RecursiveCharacterTextSplitter(
+    #     chunk_size = 1200,
+    #     chunk_overlap = 200,
+    #     add_start_index = True,
+    #     strip_whitespace = True,
+    #     separators = MARKDOWN_SEPARATORS
+    # )
+    text_splitter = SemanticChunker(
+        embeddings = OpenAIEmbeddings(),
+        breakpoint_threshold_amount = 0.85,
     )
-
     splits = text_splitter.split_documents(docs)
 
     embeddings = OpenAIEmbeddings(
