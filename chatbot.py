@@ -4,17 +4,12 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from dotenv import load_dotenv
-
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama
 
 def rag_chatbot() :
-
-    load_dotenv()
 
     loaders = DirectoryLoader(
         path = "./papers",
@@ -26,41 +21,17 @@ def rag_chatbot() :
 
     docs = loaders.load()
 
-    MARKDOWN_SEPARATORS = [
-        "\n#{1,6} ",
-        "```\n",
-        "\n\\*\\*\\*+\n",
-        "\n---+\n",
-        "\n___+\n",
-        "\n\n",
-        "\n",
-        " ",
-        "",
-    ]
-
-    # text_splitter = RecursiveCharacterTextSplitter(
-    #     chunk_size = 1200,
-    #     chunk_overlap = 200,
-    #     add_start_index = True,
-    #     strip_whitespace = True,
-    #     separators = MARKDOWN_SEPARATORS
-    # )
-
-    text_splitter = SemanticChunker(
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2"),
-        breakpoint_threshold_amount = 0.85,
-    )
-
-    splits = text_splitter.split_documents(docs)
-
-    # embeddings = OpenAIEmbeddings(
-    #     model = "text-embedding-3-small",
-    # )
-
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
 
+    text_splitter = SemanticChunker(
+        embeddings = embeddings,
+        breakpoint_threshold_amount = 0.85,
+    )
+
+    splits = text_splitter.split_documents(docs)
+ 
     vectorstore = FAISS.from_documents(
         documents = splits,
         embedding = embeddings,
@@ -86,10 +57,6 @@ def rag_chatbot() :
 
     prompt = ChatPromptTemplate.from_template(template)
 
-    # llm = ChatOpenAI(
-    #     model = "gpt-5-mini",
-    #     temperature = 0
-    # )
 
     llm = ChatOllama(
         model="llama3.2:3b",
@@ -103,9 +70,7 @@ def rag_chatbot() :
         | StrOutputParser()
     )
 
-
     while True: 
-
         user_input = input("Question: ").strip()
         if user_input.lower() in ["exit", "quit"]:
             print("Exiting the chatbot. Goodbye!")
@@ -114,6 +79,7 @@ def rag_chatbot() :
         answer = rag_chain.invoke(user_input) 
 
         print(answer)
+
 
 if __name__ == "__main__":
     rag_chatbot() 
