@@ -21,6 +21,26 @@ def rag_chatbot() :
 
     docs = loaders.load()
 
+    # MARKDOWN_SEPARATORS = [
+    #     "\n#{1,6} ",
+    #     "```\n",
+    #     "\n\\*\\*\\*+\n",
+    #     "\n---+\n",
+    #     "\n___+\n",
+    #     "\n\n",
+    #     "\n",
+    #     " ",
+    #     "",
+    # ]
+
+    # text_splitter = RecursiveCharacterTextSplitter(
+    #     chunk_size = 1200,
+    #     chunk_overlap = 200,
+    #     add_start_index = True,
+    #     strip_whitespace = True,
+    #     separators = MARKDOWN_SEPARATORS
+    # )
+
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
@@ -31,7 +51,7 @@ def rag_chatbot() :
     )
 
     splits = text_splitter.split_documents(docs)
- 
+    
     vectorstore = FAISS.from_documents(
         documents = splits,
         embedding = embeddings,
@@ -57,7 +77,6 @@ def rag_chatbot() :
 
     prompt = ChatPromptTemplate.from_template(template)
 
-
     llm = ChatOllama(
         model="llama3.2:3b",
         temperature=0
@@ -70,13 +89,14 @@ def rag_chatbot() :
         | StrOutputParser()
     )
 
-    while True: 
+    while True:
         user_input = input("Question: ").strip()
+
         if user_input.lower() in ["exit", "quit"]:
             print("Exiting the chatbot. Goodbye!")
             break
 
-        answer = rag_chain.invoke(user_input) 
+        answer = rag_chain.invoke(user_input)
 
         print(answer)
 
