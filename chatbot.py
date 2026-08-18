@@ -9,6 +9,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from dotenv import load_dotenv
 
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_ollama import ChatOllama
 
 def rag_chatbot() :
 
@@ -43,14 +45,20 @@ def rag_chatbot() :
     #     strip_whitespace = True,
     #     separators = MARKDOWN_SEPARATORS
     # )
+
     text_splitter = SemanticChunker(
-        embeddings = OpenAIEmbeddings(),
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2"),
         breakpoint_threshold_amount = 0.85,
     )
+
     splits = text_splitter.split_documents(docs)
 
-    embeddings = OpenAIEmbeddings(
-        model = "text-embedding-3-small",
+    # embeddings = OpenAIEmbeddings(
+    #     model = "text-embedding-3-small",
+    # )
+
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
 
     vectorstore = FAISS.from_documents(
@@ -78,9 +86,14 @@ def rag_chatbot() :
 
     prompt = ChatPromptTemplate.from_template(template)
 
-    llm = ChatOpenAI(
-        model = "gpt-5-mini",
-        temperature = 0
+    # llm = ChatOpenAI(
+    #     model = "gpt-5-mini",
+    #     temperature = 0
+    # )
+
+    llm = ChatOllama(
+        model="llama3.2:3b",
+        temperature=0
     )
 
     rag_chain = (
