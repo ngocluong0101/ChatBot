@@ -1,5 +1,3 @@
-from ast import main
-
 from langchain_community.document_loaders import DirectoryLoader, UnstructuredFileLoader
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_community.vectorstores import FAISS
