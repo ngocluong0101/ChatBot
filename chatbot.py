@@ -12,11 +12,15 @@ from langchain_ollama import ChatOllama
 def rag_chatbot() :
 
     loaders = DirectoryLoader(
-        path = "./papers",
-        glob = "**/*.pdf",
-        loader_cls = UnstructuredFileLoader,
-        show_progress = True,
-        use_multithreading = True 
+        path="./papers",
+        glob="**/*.pdf",
+        loader_cls=UnstructuredFileLoader,
+        loader_kwargs={
+            # "mode": "paged",         
+            "languages": ["vie"],     
+        },
+        show_progress=True,
+        use_multithreading=True
     )
 
     docs = loaders.load()
@@ -77,8 +81,14 @@ def rag_chatbot() :
         temperature=0
     )
 
+    def format_docs(docs):
+        return "\n\n".join(
+            f"[Nguồn: {d.metadata.get('source', '?')}]\n{d.page_content}"
+            for d in docs
+        )
+
     rag_chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
         | prompt
         | llm
         | StrOutputParser()
