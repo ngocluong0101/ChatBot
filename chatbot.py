@@ -21,33 +21,28 @@ def rag_chatbot() :
 
     docs = loaders.load()
 
-    # MARKDOWN_SEPARATORS = [
-    #     "\n#{1,6} ",
-    #     "```\n",
-    #     "\n\\*\\*\\*+\n",
-    #     "\n---+\n",
-    #     "\n___+\n",
-    #     "\n\n",
-    #     "\n",
-    #     " ",
-    #     "",
-    # ]
+    MARKDOWN_SEPARATORS = [
+        "\n#{1,6} ",
+        "```\n",
+        "\n\\*\\*\\*+\n",
+        "\n---+\n",
+        "\n___+\n",
+        "\n\n",
+        "\n",
+        " ",
+        "",
+    ]
 
-    # text_splitter = RecursiveCharacterTextSplitter(
-    #     chunk_size = 1200,
-    #     chunk_overlap = 200,
-    #     add_start_index = True,
-    #     strip_whitespace = True,
-    #     separators = MARKDOWN_SEPARATORS
-    # )
-
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size = 1200,
+        chunk_overlap = 200,
+        add_start_index = True,
+        strip_whitespace = True,
+        separators = MARKDOWN_SEPARATORS
     )
 
-    text_splitter = SemanticChunker(
-        embeddings = embeddings,
-        breakpoint_threshold_amount = 0.85,
+    embeddings = HuggingFaceEmbeddings(
+        model_name="BAAI/bge-m3"
     )
 
     splits = text_splitter.split_documents(docs)
@@ -59,8 +54,8 @@ def rag_chatbot() :
     )
 
     retriever = vectorstore.as_retriever(
-        search_type = "similarity_score_threshold",
-        search_kwargs = {"k": 5, "score_threshold": 0.2}
+        search_type = "similarity",
+        search_kwargs = {"k": 5}
     )
 
     template = (
