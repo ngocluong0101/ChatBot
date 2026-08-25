@@ -1,5 +1,4 @@
 from langchain_community.document_loaders import DirectoryLoader, UnstructuredFileLoader
-from langchain_experimental.text_splitter import SemanticChunker
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.prompts import ChatPromptTemplate
@@ -8,6 +7,12 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama
+
+def format_docs(docs) :
+    return "\n\n".join(
+        f"[Source: {d.metadata.get('source', '?')}]\n{d.page_content}"
+        for d in docs
+    )
 
 def rag_chatbot() :
 
@@ -80,12 +85,6 @@ def rag_chatbot() :
         model="llama3.2:3b",
         temperature=0
     )
-
-    def format_docs(docs):
-        return "\n\n".join(
-            f"[Nguồn: {d.metadata.get('source', '?')}]\n{d.page_content}"
-            for d in docs
-        )
 
     rag_chain = (
         {"context": retriever | format_docs, "question": RunnablePassthrough()}
