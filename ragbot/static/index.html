@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trợ lý tài liệu nội bộ</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1c2430; --muted: #66707d; --border: #dde1e7;
+    --accent: #2f6fed; --accent-text: #ffffff; --user: #e8effd; --warn: #b4540a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --panel: #1c2128; --text: #e6e9ee; --muted: #8b95a3; --border: #2e3640;
+      --accent: #5b8cf5; --accent-text: #0e1116; --user: #25324a; --warn: #e0883e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; }
+  .app { max-width: 760px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; padding: 0 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0 8px; }
+  h1 { font-size: 1.1rem; margin: 0; }
+  .tools { display: flex; gap: 8px; align-items: center; }
+  button, input { font: inherit; color: inherit; }
+  .ghost { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer; color: var(--muted); }
+  .ghost:hover { color: var(--text); }
+  #key { width: 130px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--panel); }
+  #log { flex: 1; overflow-y: auto; padding: 8px 0 16px; display: flex; flex-direction: column; gap: 12px; }
+  .hint { color: var(--muted); text-align: center; margin-top: 15vh; }
+  .msg { max-width: 92%; padding: 10px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: var(--user); border-color: transparent; }
+  .msg.refused .text { color: var(--muted); }
+  .msg.error { border-color: var(--warn); color: var(--warn); }
+  .note { font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  .sources { margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border); font-size: .85rem; color: var(--muted); white-space: normal; }
+  .sources ul { margin: 4px 0 0; padding-left: 18px; }
+  form { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 16px; background: var(--bg); }
+  #q { flex: 1; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--panel); }
+  #send { border: 0; border-radius: 12px; padding: 0 18px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
+  #send:disabled { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Trợ lý tài liệu nội bộ</h1>
+    <div class="tools">
+      <input id="key" type="password" placeholder="API key (nếu có)" autocomplete="off" aria-label="API key">
+      <button id="reset" class="ghost" type="button">Cuộc trò chuyện mới</button>
+    </div>
+  </header>
+  <main id="log" aria-live="polite">
+    <p class="hint">Hỏi về nội quy, bảo mật, làm việc từ xa, nghỉ phép và quy tắc ứng xử.</p>
+  </main>
+  <form id="form">
+    <input id="q" type="text" maxlength="1000" placeholder="Nhập câu hỏi…" autocomplete="off" aria-label="Câu hỏi" required>
+    <button id="send" type="submit">Gửi</button>
+  </form>
+</div>
+<script>
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("q");
+const send = document.getElementById("send");
+const keyInput = document.getElementById("key");
+const MAX_HISTORY = 12;
+let history = [];
+
+try { keyInput.value = sessionStorage.getItem("ragKey") || ""; } catch (_) {}
+keyInput.addEventListener("change", () => {
+  try { sessionStorage.setItem("ragKey", keyInput.value); } catch (_) {}
+});
+
+document.getElementById("reset").addEventListener("click", () => {
+  history = [];
+  log.innerHTML = '<p class="hint">Đã bắt đầu cuộc trò chuyện mới.</p>';
+});
+
+function addMessage(kind) {
+  log.querySelector(".hint")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg " + kind;
+  const text = document.createElement("div");
+  text.className = "text";
+  el.append(text);
+  log.append(el);
+  log.scrollTop = log.scrollHeight;
+  return { el, text };
+}
+
+// Dùng textContent (không phải innerHTML) để nội dung từ model/tài liệu không thể chèn HTML.
+function renderSources(el, sources) {
+  if (!sources.length) return;
+  const box = document.createElement("div");
+  box.className = "sources";
+  box.append("Nguồn:");
+  const list = document.createElement("ul");
+  for (const s of sources) {
+    const li = document.createElement("li");
+    li.textContent = `${s.file} (trang ${s.page ?? "?"}${s.section ? ", mục " + s.section : ""})`;
+    list.append(li);
+  }
+  box.append(list);
+  el.append(box);
+}
+
+function parseBlock(block) {
+  let event = "message", data = "";
+  for (const line of block.split("\n")) {
+    if (line.startsWith("event: ")) event = line.slice(7);
+    else if (line.startsWith("data: ")) data += line.slice(6);
+  }
+  return data ? { event, data: JSON.parse(data) } : null;
+}
+
+async function ask(question) {
+  addMessage("user").text.textContent = question;
+  const bot = addMessage("bot");
+  bot.text.textContent = "…";
+  const headers = { "Content-Type": "application/json" };
+  if (keyInput.value) headers["X-API-Key"] = keyInput.value;
+
+  let answerText = null;
+  try {
+    const res = await fetch("/chat/stream", {
+      method: "POST", headers, body: JSON.stringify({ question, history }),
+    });
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => ({}))).detail;
+      throw new Error(typeof detail === "string" ? detail : `Lỗi ${res.status}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "", streamed = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) >= 0) {
+        const msg = parseBlock(buffer.slice(0, idx));
+        buffer = buffer.slice(idx + 2);
+        if (!msg) continue;
+        if (msg.event === "rewrite") {
+          const note = document.createElement("div");
+          note.className = "note";
+          note.textContent = "Hiểu câu hỏi là: " + msg.data.text;
+          bot.el.prepend(note);
+        } else if (msg.event === "token") {
+          streamed += msg.data.text;
+          bot.text.textContent = streamed;
+        } else if (msg.event === "done") {
+          // Câu trả lời cuối (đã chuẩn hóa lời từ chối, kèm nguồn) thay cho văn bản đang stream.
+          answerText = msg.data.text;
+          bot.text.textContent = answerText;
+          bot.el.classList.toggle("refused", msg.data.refused);
+          renderSources(bot.el, msg.data.sources);
+        } else if (msg.event === "error") {
+          throw new Error(msg.data.message);
+        }
+      }
+      log.scrollTop = log.scrollHeight;
+    }
+  } catch (err) {
+    bot.el.classList.add("error");
+    bot.text.textContent = err.message || "Không gửi được câu hỏi.";
+  }
+  if (answerText !== null) {
+    history.push({ role: "user", content: question }, { role: "assistant", content: answerText });
+    history = history.slice(-MAX_HISTORY);
+  }
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = "";
+  send.disabled = true;
+  try { await ask(question); } finally { send.disabled = false; input.focus(); }
+});
+</script>
+</body>
+</html>

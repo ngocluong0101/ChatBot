@@ -1,0 +1,43 @@
+# Chạy:  docker compose up -d --build
+# Lần đầu cần tải model LLM vào Ollama (app sẽ tự khởi động lại khi model đã có):
+#        docker compose exec ollama ollama pull qwen2.5:7b-instruct
+# Mở http://localhost:8000
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Dùng GPU NVIDIA (cần nvidia-container-toolkit): bỏ comment khối dưới.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  app:
+    build: .
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      RAG_OLLAMA_BASE_URL: http://ollama:11434
+      # Đặt RAG_API_KEY (trong shell hoặc file .env cạnh compose) để yêu cầu header X-API-Key.
+      RAG_API_KEY: ${RAG_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./papers:/app/papers:ro
+      - appdata:/data
+    # App thoát khi Ollama chưa có model; tự thử lại sau khi bạn `ollama pull`.
+    restart: on-failure
+
+volumes:
+  ollama:
+  appdata:

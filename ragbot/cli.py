@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from ragbot.config import get_settings
 from ragbot.errors import RagError
-from ragbot.pipeline import build_pipeline
+from ragbot.pipeline import Turn, build_pipeline
 
 EXIT_COMMANDS = {"exit", "quit"}
 NOISY_LOGGERS = ("httpx", "httpcore", "urllib3", "sentence_transformers", "unstructured", "faiss", "filelock")
@@ -35,7 +35,8 @@ def main() -> int:
         print(f"Lỗi: {exc}", file=sys.stderr)
         return 1
 
-    print("Sẵn sàng. Nhập câu hỏi (gõ 'exit' hoặc 'quit' để thoát).")
+    print("Sẵn sàng. Nhập câu hỏi ('reset' để xóa lịch sử hội thoại, 'exit' hoặc 'quit' để thoát).")
+    history: list[Turn] = []
     while True:
         try:
             question = input("Question: ").strip()
@@ -47,9 +48,16 @@ def main() -> int:
             break
         if not question:
             continue
+        if question.lower() == "reset":
+            history.clear()
+            print("Đã xóa lịch sử hội thoại.")
+            continue
 
         try:
-            print(pipeline.ask(question).render())
+            answer = pipeline.ask(question, history)
+            print(answer.render())
+            history += [Turn("user", question), Turn("assistant", answer.text)]
+            del history[: max(0, len(history) - 2 * settings.max_history_turns)]
         except RagError as exc:
             # Lỗi từng câu hỏi (ví dụ Ollama vừa tắt) không nên làm chết cả phiên chat.
             print(f"Lỗi: {exc}", file=sys.stderr)

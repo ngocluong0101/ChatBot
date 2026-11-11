@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     # Chỉ hiển thị nguồn của chunk có điểm >= top-1 trừ biên độ này.
     source_score_margin: float = 0.08
 
+    # Hội thoại. Viết lại câu hỏi nối tiếp ("còn trường hợp nghỉ ốm?") và câu hỏi gõ không dấu
+    # thành câu độc lập, có dấu trước khi truy hồi. Chỉ tốn thêm một lượt gọi LLM khi cần.
+    rewrite_queries: bool = True
+    max_history_turns: int = 6  # số lượt hỏi-đáp gần nhất được giữ làm ngữ cảnh
+
+    # API. Để trống = không yêu cầu khóa; đặt giá trị thì mọi endpoint (trừ /health và trang chủ)
+    # yêu cầu header X-API-Key khớp.
+    api_key: str = ""
+
     log_level: str = "INFO"
 
     @field_validator("papers_dir", "index_dir")
@@ -84,6 +93,8 @@ class Settings(BaseSettings):
     def _check_ranges(self) -> "Settings":
         if self.chunk_size <= 0 or self.top_k <= 0 or self.num_ctx <= 0 or self.fetch_k <= 0:
             raise ValueError("chunk_size, top_k, fetch_k và num_ctx phải > 0")
+        if self.max_history_turns < 0:
+            raise ValueError("max_history_turns phải >= 0")
         if not 0.0 <= self.rerank_threshold <= 1.0:
             raise ValueError("rerank_threshold là xác suất nên phải nằm trong [0, 1]")
         if not 0 <= self.chunk_overlap < self.chunk_size:

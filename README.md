@@ -2,10 +2,12 @@
 
 ## Overview
 
-CLI chatbot hỏi đáp tiếng Việt trên các file PDF nội bộ trong `papers/`, chạy hoàn toàn local. Pipeline: đọc PDF theo trang → chia chunk theo mục → tìm kiếm lai (vector + BM25) → rerank bằng cross-encoder → LLM qua Ollama trả lời kèm nguồn (file, trang, mục). Có bộ đánh giá tự động để mọi thay đổi đều được đo bằng số liệu.
+Chatbot hỏi đáp tiếng Việt trên các file PDF nội bộ trong `papers/`, chạy hoàn toàn local, dùng được qua CLI, giao diện web hoặc REST API (có streaming). Pipeline: đọc PDF theo trang → chia chunk theo mục → tìm kiếm lai (vector + BM25) → rerank bằng cross-encoder → LLM qua Ollama trả lời kèm nguồn (file, trang, mục). Có bộ đánh giá tự động để mọi thay đổi đều được đo bằng số liệu.
 
 ## Features
 
+- Hội thoại nhiều lượt: câu hỏi nối tiếp ("còn nghỉ ốm thì sao?") và câu gõ không dấu được viết lại thành câu độc lập, có dấu trước khi truy hồi.
+- REST API FastAPI (`/chat`, `/chat/stream` dạng SSE, `/health`), API key tùy chọn, giao diện web một trang có streaming; Docker + docker-compose; CI bằng GitHub Actions.
 - Chunk theo cấu trúc tài liệu: mỗi mục đánh số ("1. …", "2. …") là một chunk, mang kèm tên công ty và tiêu đề tài liệu; trang không có mục rơi về cách cắt theo độ dài.
 - Hybrid retrieval: FAISS (`BAAI/bge-m3`, cosine) + BM25 trên văn bản bỏ dấu, gộp bằng Reciprocal Rank Fusion; hỗ trợ cả câu hỏi gõ không dấu.
 - Rerank bằng cross-encoder `BAAI/bge-reranker-v2-m3`; điểm reranker dùng làm ngưỡng "không đủ liên quan" nên câu ngoài phạm vi bị từ chối trước khi gọi LLM.
@@ -16,6 +18,7 @@ CLI chatbot hỏi đáp tiếng Việt trên các file PDF nội bộ trong `pap
 ## Tech Stack
 
 - Python, LangChain (loaders, vector store, prompt, Ollama), pydantic-settings
+- FastAPI + uvicorn (API, SSE streaming), giao diện web HTML/JS thuần, Docker, GitHub Actions
 - Embedding `BAAI/bge-m3`, reranker `BAAI/bge-reranker-v2-m3` (sentence-transformers)
 - FAISS, BM25 tự cài (`ragbot/lexical.py`)
 - Ollama: LLM `qwen2.5:7b-instruct` (mặc định)
@@ -34,16 +37,21 @@ CLI chatbot hỏi đáp tiếng Việt trên các file PDF nội bộ trong `pap
 │   ├── lexical.py        # BM25 + tokenizer bỏ dấu tiếng Việt
 │   ├── rerank.py         # cross-encoder reranker
 │   ├── retrieval.py      # dense | hybrid (RRF) + rerank, trả về điểm để áp ngưỡng
-│   ├── pipeline.py       # ngưỡng, prompt, LLM, nhận diện từ chối, citation
+│   ├── pipeline.py       # viết lại câu hỏi, ngưỡng, prompt, LLM, streaming, nhận diện từ chối, citation
+│   ├── api.py            # FastAPI: /chat, /chat/stream (SSE), /health, API key
+│   ├── static/index.html # giao diện web (phục vụ ở /)
 │   ├── evaluate.py       # harness đánh giá
-│   ├── cli.py            # vòng lặp hỏi đáp, xử lý lỗi, logging
+│   ├── cli.py            # vòng lặp hỏi đáp có lịch sử, xử lý lỗi, logging
 │   └── errors.py
 ├── evals/
 │   ├── dataset.jsonl     # 53 câu hỏi có nhãn
 │   ├── baseline.json     # kết quả trước Bước 4 (llama3.2:3b, chunk cố định, dense)
-│   └── after-step4.json  # kết quả với cấu hình mặc định hiện tại
+│   ├── after-step4.json  # sau Bước 4 (chunk theo mục, hybrid, rerank, qwen2.5:7b)
+│   └── after-step5.json  # sau Bước 5 (thêm viết lại câu hỏi) = cấu hình mặc định hiện tại
 ├── tests/                # pytest, không cần tải model
 ├── papers/               # 5 PDF mẫu
+├── Dockerfile, docker-compose.yml, .dockerignore
+├── .github/workflows/    # ci.yml (lint + test), docker.yml (build image)
 ├── .env.example          # mẫu cấu hình
 ├── pyproject.toml        # cấu hình ruff + pytest
 ├── requirements.txt
@@ -100,9 +108,48 @@ Nguồn:
 - 05_quy_tac_ung_xu_doanh_nghiep.pdf (trang 1, mục 3. Quà tặng và tiếp khách)
 ```
 
+## Web UI & API
+
+```bash
+uvicorn ragbot.api:app --host 0.0.0.0 --port 8000
+```
+
+Mở `http://localhost:8000` để dùng giao diện web (streaming, nguồn kèm mục, nút "Cuộc trò chuyện mới"). API:
+
+| Endpoint | Mô tả |
+|---|---|
+| `POST /chat` | Trả lời trọn vẹn: `{text, refused, question, sources[]}` |
+| `POST /chat/stream` | Server-Sent Events: `rewrite` (câu hỏi đã viết lại), `token`, `done` (câu trả lời cuối + nguồn), `error` |
+| `GET /health` | Trạng thái, model đang dùng, số chunk |
+
+```bash
+curl -X POST localhost:8000/chat -H 'content-type: application/json' -d '{
+  "question": "còn nghỉ khẩn cấp thì sao?",
+  "history": [
+    {"role": "user", "content": "Nghỉ ốm cần báo trước mấy giờ?"},
+    {"role": "assistant", "content": "Trước 09:00."}
+  ]
+}'
+```
+
+Client giữ lịch sử và gửi lại mỗi lần (server không lưu phiên). Câu hỏi tối đa 1000 ký tự, lịch sử tối đa 40 tin nhắn. Đặt `RAG_API_KEY` để yêu cầu header `X-API-Key` cho `/chat*` (`/health` và trang chủ luôn mở). Sự kiện `done` là câu trả lời có thẩm quyền: nếu model vừa stream một câu từ chối, `done` sẽ thay bằng lời từ chối chuẩn và bỏ nguồn.
+
+Các model dùng chung một GPU và không đảm bảo thread-safe nên mọi lượt hỏi được xếp hàng qua một khóa: phù hợp cho một nhóm nhỏ trong nội bộ, chưa phải dịch vụ đồng thời cao.
+
+## Docker
+
+```bash
+docker compose up -d --build
+docker compose exec ollama ollama pull qwen2.5:7b-instruct   # lần đầu; app tự khởi động lại khi model đã có
+```
+
+Mở `http://localhost:8000`. Compose chạy Ollama và app, mount `./papers` (chỉ đọc) và một volume `/data` giữ model HuggingFace + FAISS index. Image mặc định dùng torch CPU (~850MB, chậm hơn GPU); bỏ comment khối `deploy` trong `docker-compose.yml` để Ollama dùng GPU NVIDIA. `RAG_API_KEY` truyền qua biến môi trường.
+
 ## How RAG Works
 
 ```text
+Câu hỏi + lịch sử ─ (viết lại thành câu độc lập, có dấu, khi cần) ─┐
+                                                                     ▼
 Câu hỏi ─┬─ vector search (bge-m3, FAISS) ──┐
          └─ BM25 (bỏ dấu)  ────────────────┴─ RRF ─ ứng viên ─ reranker ─ lọc theo ngưỡng ─┬─ rỗng → "không tìm thấy" (không gọi LLM)
                                                                                             └─ top-k chunk → LLM → trả lời + nguồn
@@ -155,6 +202,12 @@ Context precision của D/E đo ở ngưỡng reranker 0.30; ở ngưỡng mặc
 
 Hai model chỉ chênh một câu nên không đủ để kết luận về độ chính xác; `qwen2.5:7b` được chọn vì ổn định hơn giữa các lần chạy. `qwen2.5:7b` chỉ sai hai câu không dấu; `llama3.2:3b` ngoài hai câu đó còn sai ngẫu nhiên thêm 0–1 câu mỗi lần.
 
+### Sau Bước 5 (viết lại câu hỏi)
+
+Thêm bước viết lại câu hỏi (`evals/after-step5.json`) đưa accuracy lên **53/53 ở cả 3 lần chạy liên tiếp**, 0 bịa đáp án, citation 1.000; hai câu không dấu `d01`, `d02` đã đúng. Prompt viết lại được viết một lần theo thiết kế chung, không chỉnh theo hai câu này. Retrieval-only vẫn đo trên câu gốc nên hit@k không đổi; phần cải thiện nằm ở generation. Latency ~1.5 giây/câu (câu không dấu hoặc nối tiếp tốn thêm một lượt LLM).
+
+Bộ eval hiện **đã bão hòa**: chạm 100% nghĩa là không còn phân biệt được các cải tiến tiếp theo, và đây là tập phát triển mà các quyết định (ngưỡng, prompt, model) đã dựa vào, nên 100% không đồng nghĩa với 100% trên dữ liệu thật. Việc cần làm tiếp là thêm câu hỏi mới, khó hơn, chưa từng được dùng để chỉnh hệ thống. Bộ eval cũng chưa đo hội thoại nhiều lượt.
+
 ### Lưu ý khi đọc số
 
 - LLM ở temperature 0 vẫn không hoàn toàn tất định; chênh ±1 câu giữa các lần chạy là nhiễu (ví dụ `n08` lúc từ chối lúc bịa "4 ngày" ở `llama3.2:3b`).
@@ -172,14 +225,16 @@ ruff check . && ruff format --check .
 
 ## Limitations
 
-- **Câu hỏi không dấu vẫn thất bại** (`d01`, `d02` trong bộ eval): hybrid đã đưa đúng chunk vào top-5 (hit@5 = 1.0) nhưng điểm reranker rất thấp (0.01–0.10) với văn bản mất dấu nên bị ngưỡng 0.20 chặn. Hướng khắc phục là viết lại câu hỏi có dấu bằng LLM trước khi truy hồi.
+- Câu hỏi không dấu chỉ đúng nhờ bước viết lại bằng LLM (reranker và embedding đều yếu với văn bản mất dấu). Nếu `RAG_REWRITE_QUERIES=false` hoặc LLM viết lại sai thì kết quả quay về như trước. Câu tiếng Anh toàn ASCII cũng bị đưa qua bước này (prompt yêu cầu giữ nguyên).
+- Lịch sử hội thoại do client giữ, server không lưu phiên; không có xác thực người dùng, chỉ có một API key dùng chung.
 - Chunk theo mục giả định tài liệu có tiêu đề đánh số "N. Tiêu đề"; tài liệu khác cấu trúc rơi về cách cắt theo độ dài.
 - Index được dựng lại toàn bộ khi PDF thay đổi (chưa cập nhật tăng dần). `FAISS.load_local` dùng pickle nên không được trỏ `RAG_INDEX_DIR` tới thư mục không tin cậy.
 - Khởi động mất vài chục giây vì nạp ba model.
-- Chỉ trả lời dựa trên các PDF trong `papers/`; chưa có lịch sử hội thoại.
+- Chỉ trả lời dựa trên các PDF trong `papers/`.
+- Workflow CI và Docker mới được kiểm tra cú pháp và build image ở máy phát triển, chưa từng chạy trên GitHub Actions.
 
 ## Future Improvements
 
-- Viết lại câu hỏi không dấu bằng LLM; thêm lịch sử hội thoại (condense question).
-- API (FastAPI) với streaming, giao diện web, Docker.
-- Mở rộng bộ eval và hiệu chỉnh ngưỡng trên tập kiểm chứng riêng.
+- Mở rộng bộ eval (câu khó hơn, hội thoại nhiều lượt) và hiệu chỉnh ngưỡng trên tập kiểm chứng riêng.
+- Cập nhật index tăng dần khi thêm PDF; phiên hội thoại phía server, xác thực người dùng.
+- Phục vụ mô hình qua một server suy luận riêng để xử lý đồng thời.
