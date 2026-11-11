@@ -6,3 +6,6 @@ langchain-ollama==1.1.0
 faiss-cpu==1.15.0
 sentence-transformers==5.7.0
 unstructured[pdf]==0.18.32
+pydantic-settings==2.14.2
+ollama==0.6.2
+httpx==0.28.1

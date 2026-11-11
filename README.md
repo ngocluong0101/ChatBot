@@ -25,27 +25,28 @@ CLI chatbot hỏi đáp dựa trên nội dung các file PDF trong thư mục `p
 
 ```text
 .
-├── chatbot.py
-├── papers/
-│   ├── 01_noi_quy_nhan_su.pdf
-│   ├── 02_chinh_sach_bao_mat_thong_tin.pdf
-│   ├── 03_quy_dinh_lam_viec_tu_xa.pdf
-│   ├── 04_quy_trinh_nghi_phep_cong_tac.pdf
-│   └── 05_quy_tac_ung_xu_doanh_nghiep.pdf
-├── .env
-└── README.md
+├── chatbot.py            # entry point: python chatbot.py
+├── ragbot/
+│   ├── config.py         # Settings (pydantic-settings, đọc .env, tiền tố RAG_)
+│   ├── ingest.py         # đọc PDF theo trang, chia chunk
+│   ├── indexing.py       # dựng/cache FAISS index (fingerprint theo nội dung PDF)
+│   ├── pipeline.py       # retrieval có ngưỡng điểm, prompt, LLM, citation
+│   ├── cli.py            # vòng lặp hỏi đáp, xử lý lỗi, logging
+│   └── errors.py
+├── tests/                # pytest, không cần tải model
+├── papers/               # 5 PDF mẫu
+├── .env.example          # mẫu cấu hình
+├── pyproject.toml        # cấu hình ruff + pytest
+├── requirements.txt
+└── requirements-dev.txt
 ```
 
 ## Installation
 
-Tạo môi trường ảo và cài các package được source sử dụng:
-
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install langchain langchain-community langchain-experimental \
-	langchain-text-splitters langchain-core langchain-huggingface \
-	langchain-ollama faiss-cpu sentence-transformers "unstructured[pdf]"
+pip install -r requirements.txt        # thêm requirements-dev.txt nếu muốn chạy test/lint
 ```
 
 Cài Ollama theo hướng dẫn tại [ollama.com](https://ollama.com), sau đó tải model:
@@ -54,7 +55,29 @@ Cài Ollama theo hướng dẫn tại [ollama.com](https://ollama.com), sau đó
 ollama pull llama3.2:3b
 ```
 
-Model embedding `BAAI/bge-m3` sẽ được HuggingFace tải khi chạy lần đầu. File `.env` hiện không chứa cấu hình bắt buộc và source không đọc biến môi trường.
+Model embedding `BAAI/bge-m3` sẽ được HuggingFace tải khi chạy lần đầu.
+
+PDF dạng scan (ảnh) cần OCR: cài thêm Tesseract kèm gói ngôn ngữ `vie` (`apt install tesseract-ocr tesseract-ocr-vie`).
+
+## Configuration
+
+Mọi tham số đều tùy chọn. Sao chép `.env.example` thành `.env` để đổi, ví dụ:
+
+```bash
+RAG_LLM_MODEL=qwen2.5:7b-instruct
+RAG_TOP_K=4
+RAG_SCORE_THRESHOLD=0.5
+```
+
+Xem đầy đủ trong `.env.example` và [ragbot/config.py](ragbot/config.py). Đổi PDF hoặc tham số chunking/embedding sẽ tự dựng lại index.
+
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+ruff check . && ruff format --check .
+```
 
 ## How to Run
 
@@ -96,12 +119,10 @@ Exiting the chatbot. Goodbye!
 - Chỉ trả lời dựa trên các PDF được đặt trong `papers/`.
 - Cần chạy Ollama local và có model `llama3.2:3b`.
 - Việc tải model embedding lần đầu cần kết nối mạng và có thể tốn thời gian/dung lượng.
-- Vector store được tạo lại mỗi lần khởi động; chưa có cơ chế lưu index hoặc cập nhật tài liệu tăng dần.
+- Index được cache vào `.index/`; khi PDF thay đổi, toàn bộ index được dựng lại (chưa cập nhật tăng dần).
 - Chất lượng kết quả phụ thuộc vào nội dung PDF, quá trình trích xuất và model local.
 
 ## Future Improvements
 
-- Lưu và tái sử dụng FAISS index thay vì tạo lại sau mỗi lần chạy.
 - Thêm giao diện web và lịch sử hội thoại.
-- Cải thiện citation để hiển thị chính xác trang và tên tài liệu.
-- Bổ sung xử lý lỗi, logging và cấu hình model qua biến môi trường.
+- Bộ đánh giá (eval) cho retrieval và generation.

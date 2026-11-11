@@ -4,3 +4,7 @@ venv/
 __pycache__/
 *.pyc
 interview.md
+.index/
+.index.tmp/
+.pytest_cache/
+.ruff_cache/
