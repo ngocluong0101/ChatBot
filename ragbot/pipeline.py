@@ -46,6 +46,8 @@ class Answer:
     text: str
     sources: tuple[Source, ...] = ()
     refused: bool = False
+    # Các đoạn văn bản đã đưa vào prompt; dùng để kiểm tra/đánh giá tính trung thực (faithfulness).
+    contexts: tuple[str, ...] = ()
 
     def render(self) -> str:
         if not self.sources:
@@ -108,9 +110,19 @@ class RagPipeline:
         self._vectorstore = vectorstore
         self._chain = chain
 
-    def retrieve(self, question: str) -> list[tuple[Document, float]]:
-        """Lấy top-k chunk rồi loại các chunk có cosine similarity dưới ngưỡng."""
+    def chunks(self) -> list[Document]:
+        """Mọi chunk đang nằm trong index (dùng cho đánh giá/kiểm tra)."""
+        # InMemoryDocstore chưa có API công khai để liệt kê tài liệu.
+        return list(self._vectorstore.docstore._dict.values())
+
+    def search(self, question: str) -> list[tuple[Document, float]]:
+        """Top-k chunk thô (chưa áp ngưỡng), xếp theo cosine similarity giảm dần."""
         results = self._vectorstore.similarity_search_with_score(question, k=self._settings.top_k)
+        return [(doc, float(score)) for doc, score in results]
+
+    def retrieve(self, question: str) -> list[tuple[Document, float]]:
+        """Top-k chunk rồi loại các chunk có cosine similarity dưới ngưỡng."""
+        results = self.search(question)
         hits = [(doc, float(score)) for doc, score in results if score >= self._settings.score_threshold]
         logger.debug("Retrieval: %d/%d chunk đạt ngưỡng", len(hits), len(results))
         return hits
@@ -121,7 +133,8 @@ class RagPipeline:
             # Không gọi LLM khi retrieval không đủ liên quan: nhanh hơn và không thể bịa.
             return Answer(NOT_FOUND_MESSAGE, refused=True)
 
-        context = format_context([doc for doc, _ in hits])
+        docs = [doc for doc, _ in hits]
+        context = format_context(docs)
         try:
             raw = self._chain.invoke({"context": context, "question": question})
         except (ConnectionError, httpx.HTTPError, ollama.ResponseError) as exc:
@@ -130,7 +143,11 @@ class RagPipeline:
         text = raw.strip()
         if is_refusal(text):
             return Answer(NOT_FOUND_MESSAGE, refused=True)
-        return Answer(text, sources=select_sources(hits, self._settings.source_score_margin))
+        return Answer(
+            text,
+            sources=select_sources(hits, self._settings.source_score_margin),
+            contexts=tuple(d.page_content for d in docs),
+        )
 
 
 def build_pipeline(settings: Settings | None = None) -> RagPipeline:

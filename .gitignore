@@ -8,3 +8,4 @@ interview.md
 .index.tmp/
 .pytest_cache/
 .ruff_cache/
+evals/reports/

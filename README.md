@@ -71,6 +71,39 @@ RAG_SCORE_THRESHOLD=0.5
 
 Xem đầy đủ trong `.env.example` và [ragbot/config.py](ragbot/config.py). Đổi PDF hoặc tham số chunking/embedding sẽ tự dựng lại index.
 
+## Evaluation
+
+Bộ đánh giá nằm trong `evals/dataset.jsonl` (53 câu: 39 có đáp án gồm factoid / paraphrase / đa nguồn / không dấu, và 14 không có đáp án gồm ngoài chủ đề / gần chủ đề). Mỗi câu có đáp án đi kèm file nguồn vàng, đoạn bằng chứng và từ khóa bắt buộc; harness tự kiểm tra bằng chứng có tồn tại trong chunk trước khi chạy.
+
+```bash
+python -m ragbot.evaluate --mode retrieval                 # chỉ retrieval, không cần Ollama
+python -m ragbot.evaluate --mode full --out evals/reports/run.json
+python -m ragbot.evaluate --mode full --set llm_model=qwen2.5:7b-instruct --set top_k=3
+python -m ragbot.evaluate --mode full --judge-model qwen2.5:7b-instruct   # thêm faithfulness
+```
+
+Baseline (`llama3.2:3b`, `bge-m3`, chunk 1200/200, top_k 5, ngưỡng 0.50) lưu ở `evals/baseline.json`:
+
+| Chỉ số | Giá trị |
+|---|---|
+| Retrieval hit@1 / hit@3 / hit@5 | 0.846 / 0.949 / 0.974 |
+| Retrieval MRR | 0.900 |
+| Context precision (chunk đạt ngưỡng thực sự liên quan) | 0.429 |
+| Accuracy tổng (53 câu) | 0.887 |
+| Accuracy câu có đáp án / từ chối đúng câu không có đáp án | 0.872 / 0.929 |
+| Citation accuracy | 1.000 |
+| Faithfulness (LLM-judge, chỉ mang tính tham khảo) | 0.944 |
+
+Phát hiện từ baseline (đầu vào cho các cải tiến tiếp theo):
+
+- **Câu không dấu** (`d01`, `d02`): accuracy 0, MRR 0.29. `bge-m3` kém khi mất dấu, top-1 chỉ 0.36–0.44 nên bị ngưỡng chặn.
+- **Ngưỡng không tách sạch được**: câu có đáp án có top-1 thấp nhất 0.355, câu không có đáp án cao nhất 0.565 (chồng lấn). Ngưỡng tốt nhất theo balanced accuracy là 0.54 nhưng phải đánh đổi.
+- **Chunk quá thô**: context precision chỉ 0.43; `f20` bỏ lỡ đúng chunk dù cùng file vì chunk đầu mỗi tài liệu chứa cả khối tiêu đề/metadata.
+- **Phát hiện từ chối chưa đủ rộng**: `n04` trả "Không có thông tin…" nhưng không khớp mẫu từ chối nên không bị coi là từ chối.
+- **Model 3B**: `f20` chọn nhầm câu, `p06` từ chối nhầm dù retrieval đúng; `f08` đổi "từ 3 lần" thành "trên 3 lần" (judge bắt được).
+
+Lưu ý khi đọc số: LLM ở temperature 0 vẫn không hoàn toàn tất định (hai lần chạy cho accuracy 0.868 và 0.887), nên chênh lệch ±1 câu là nhiễu. Latency trong `baseline.json` bị đội lên do Ollama phải nạp lại model khi xen kẽ judge; chạy không `--judge-model` cho latency thực (~0.7 giây/câu). LLM-judge là phép đo thô: đã phải sửa một lần vì judge không thấy câu hỏi, và vẫn còn false positive.
+
 ## Development
 
 ```bash

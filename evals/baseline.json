@@ -1,0 +1,1673 @@
+{
+  "meta": {
+    "created_at": "2026-11-11T07:40:32+00:00",
+    "mode": "full",
+    "judge_model": "qwen2.5:7b-instruct",
+    "settings": {
+      "llm_model": "llama3.2:3b",
+      "embedding_model": "BAAI/bge-m3",
+      "chunk_size": 1200,
+      "chunk_overlap": 200,
+      "top_k": 5,
+      "score_threshold": 0.5,
+      "source_score_margin": 0.08,
+      "num_ctx": 4096
+    },
+    "dataset": {
+      "total": 53,
+      "answerable": 39,
+      "unanswerable": 14
+    }
+  },
+  "retrieval": {
+    "n_answerable": 39,
+    "hit@1": 0.8462,
+    "hit@3": 0.9487,
+    "hit@5": 0.9744,
+    "mrr": 0.8996,
+    "source_recall@5": 1.0,
+    "context_precision": 0.4292,
+    "by_category": {
+      "factoid": {
+        "n": 30,
+        "hit@5": 0.9667,
+        "mrr": 0.9333
+      },
+      "multi_source": {
+        "n": 1,
+        "hit@5": 1.0,
+        "mrr": 1.0
+      },
+      "no_diacritics": {
+        "n": 2,
+        "hit@5": 1.0,
+        "mrr": 0.2917
+      },
+      "paraphrase": {
+        "n": 6,
+        "hit@5": 1.0,
+        "mrr": 0.9167
+      }
+    }
+  },
+  "threshold_sweep": {
+    "min_answerable_top1": 0.3554,
+    "max_unanswerable_top1": 0.565,
+    "best": {
+      "threshold": 0.54,
+      "answerable_kept": 0.8462,
+      "unanswerable_rejected": 0.8571,
+      "balanced_accuracy": 0.8516
+    },
+    "rows": [
+      {
+        "threshold": 0.3,
+        "answerable_kept": 1.0,
+        "unanswerable_rejected": 0.0714,
+        "balanced_accuracy": 0.5357
+      },
+      {
+        "threshold": 0.32,
+        "answerable_kept": 1.0,
+        "unanswerable_rejected": 0.2143,
+        "balanced_accuracy": 0.6071
+      },
+      {
+        "threshold": 0.34,
+        "answerable_kept": 1.0,
+        "unanswerable_rejected": 0.2143,
+        "balanced_accuracy": 0.6071
+      },
+      {
+        "threshold": 0.36,
+        "answerable_kept": 0.9744,
+        "unanswerable_rejected": 0.2857,
+        "balanced_accuracy": 0.63
+      },
+      {
+        "threshold": 0.38,
+        "answerable_kept": 0.9744,
+        "unanswerable_rejected": 0.4286,
+        "balanced_accuracy": 0.7015
+      },
+      {
+        "threshold": 0.4,
+        "answerable_kept": 0.9744,
+        "unanswerable_rejected": 0.4286,
+        "balanced_accuracy": 0.7015
+      },
+      {
+        "threshold": 0.42,
+        "answerable_kept": 0.9744,
+        "unanswerable_rejected": 0.4286,
+        "balanced_accuracy": 0.7015
+      },
+      {
+        "threshold": 0.44,
+        "answerable_kept": 0.9487,
+        "unanswerable_rejected": 0.4286,
+        "balanced_accuracy": 0.6886
+      },
+      {
+        "threshold": 0.46,
+        "answerable_kept": 0.9487,
+        "unanswerable_rejected": 0.5,
+        "balanced_accuracy": 0.7244
+      },
+      {
+        "threshold": 0.48,
+        "answerable_kept": 0.9231,
+        "unanswerable_rejected": 0.5714,
+        "balanced_accuracy": 0.7473
+      },
+      {
+        "threshold": 0.5,
+        "answerable_kept": 0.9231,
+        "unanswerable_rejected": 0.7143,
+        "balanced_accuracy": 0.8187
+      },
+      {
+        "threshold": 0.52,
+        "answerable_kept": 0.8462,
+        "unanswerable_rejected": 0.7857,
+        "balanced_accuracy": 0.8159
+      },
+      {
+        "threshold": 0.54,
+        "answerable_kept": 0.8462,
+        "unanswerable_rejected": 0.8571,
+        "balanced_accuracy": 0.8516
+      },
+      {
+        "threshold": 0.56,
+        "answerable_kept": 0.7179,
+        "unanswerable_rejected": 0.8571,
+        "balanced_accuracy": 0.7875
+      },
+      {
+        "threshold": 0.58,
+        "answerable_kept": 0.5897,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.7949
+      },
+      {
+        "threshold": 0.6,
+        "answerable_kept": 0.4359,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.7179
+      },
+      {
+        "threshold": 0.62,
+        "answerable_kept": 0.4359,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.7179
+      },
+      {
+        "threshold": 0.64,
+        "answerable_kept": 0.3333,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.6667
+      },
+      {
+        "threshold": 0.66,
+        "answerable_kept": 0.2051,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.6026
+      },
+      {
+        "threshold": 0.68,
+        "answerable_kept": 0.1026,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.5513
+      },
+      {
+        "threshold": 0.7,
+        "answerable_kept": 0.0769,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.5385
+      },
+      {
+        "threshold": 0.72,
+        "answerable_kept": 0.0,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.5
+      },
+      {
+        "threshold": 0.74,
+        "answerable_kept": 0.0,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.5
+      },
+      {
+        "threshold": 0.76,
+        "answerable_kept": 0.0,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.5
+      },
+      {
+        "threshold": 0.78,
+        "answerable_kept": 0.0,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.5
+      },
+      {
+        "threshold": 0.8,
+        "answerable_kept": 0.0,
+        "unanswerable_rejected": 1.0,
+        "balanced_accuracy": 0.5
+      }
+    ]
+  },
+  "retrieval_records": [
+    {
+      "id": "f01",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6785,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.3333,
+      "retrieved_sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f02",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.7039,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.25,
+      "retrieved_sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "f03",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.675,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.5,
+      "retrieved_sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "f04",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6279,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 1.0,
+      "retrieved_sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "f05",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6251,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.2,
+      "retrieved_sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ]
+    },
+    {
+      "id": "f06",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6525,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.2,
+      "retrieved_sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "f07",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5712,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.3333,
+      "retrieved_sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f08",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5501,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.3333,
+      "retrieved_sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "f09",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6361,
+      "first_rank": 2,
+      "source_recall": 1.0,
+      "context_precision": 0.3333,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "f10",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6961,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.3333,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f11",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.7112,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.3333,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "f12",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6528,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.4,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f13",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6374,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.3333,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f14",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5921,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.5,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f15",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5144,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.5,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f16",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5865,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.2,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f17",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.559,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.5,
+      "retrieved_sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "f18",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5619,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.5,
+      "retrieved_sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ]
+    },
+    {
+      "id": "f19",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6584,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.2,
+      "retrieved_sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "f20",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6541,
+      "first_rank": null,
+      "source_recall": 1.0,
+      "context_precision": 0.0,
+      "retrieved_sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ]
+    },
+    {
+      "id": "f21",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.7045,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.6667,
+      "retrieved_sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f22",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5097,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 1.0,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "f23",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.518,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 1.0,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "f24",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5468,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 1.0,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "f25",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5838,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.25,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "f26",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6453,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.25,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ]
+    },
+    {
+      "id": "f27",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5518,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 1.0,
+      "retrieved_sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ]
+    },
+    {
+      "id": "f28",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.6683,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.4,
+      "retrieved_sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "f29",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5467,
+      "first_rank": 2,
+      "source_recall": 1.0,
+      "context_precision": 0.2,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ]
+    },
+    {
+      "id": "f30",
+      "category": "factoid",
+      "answerable": true,
+      "top1_score": 0.5962,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.2,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ]
+    },
+    {
+      "id": "p01",
+      "category": "paraphrase",
+      "answerable": true,
+      "top1_score": 0.5893,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.3333,
+      "retrieved_sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "p02",
+      "category": "paraphrase",
+      "answerable": true,
+      "top1_score": 0.5794,
+      "first_rank": 2,
+      "source_recall": 1.0,
+      "context_precision": 0.2,
+      "retrieved_sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ]
+    },
+    {
+      "id": "p03",
+      "category": "paraphrase",
+      "answerable": true,
+      "top1_score": 0.464,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": null,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "p04",
+      "category": "paraphrase",
+      "answerable": true,
+      "top1_score": 0.5785,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.5,
+      "retrieved_sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ]
+    },
+    {
+      "id": "p05",
+      "category": "paraphrase",
+      "answerable": true,
+      "top1_score": 0.573,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.25,
+      "retrieved_sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "p06",
+      "category": "paraphrase",
+      "answerable": true,
+      "top1_score": 0.5946,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.25,
+      "retrieved_sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ]
+    },
+    {
+      "id": "m01",
+      "category": "multi_source",
+      "answerable": true,
+      "top1_score": 0.67,
+      "first_rank": 1,
+      "source_recall": 1.0,
+      "context_precision": 0.6667,
+      "retrieved_sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ]
+    },
+    {
+      "id": "d01",
+      "category": "no_diacritics",
+      "answerable": true,
+      "top1_score": 0.3554,
+      "first_rank": 4,
+      "source_recall": 1.0,
+      "context_precision": null,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "d02",
+      "category": "no_diacritics",
+      "answerable": true,
+      "top1_score": 0.44,
+      "first_rank": 3,
+      "source_recall": 1.0,
+      "context_precision": null,
+      "retrieved_sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ]
+    },
+    {
+      "id": "o01",
+      "category": "off_topic",
+      "answerable": false,
+      "top1_score": 0.2688
+    },
+    {
+      "id": "o02",
+      "category": "off_topic",
+      "answerable": false,
+      "top1_score": 0.3094
+    },
+    {
+      "id": "o03",
+      "category": "off_topic",
+      "answerable": false,
+      "top1_score": 0.3726
+    },
+    {
+      "id": "o04",
+      "category": "off_topic",
+      "answerable": false,
+      "top1_score": 0.3577
+    },
+    {
+      "id": "o05",
+      "category": "off_topic",
+      "answerable": false,
+      "top1_score": 0.368
+    },
+    {
+      "id": "o06",
+      "category": "off_topic",
+      "answerable": false,
+      "top1_score": 0.3047
+    },
+    {
+      "id": "n01",
+      "category": "near_domain",
+      "answerable": false,
+      "top1_score": 0.5051
+    },
+    {
+      "id": "n02",
+      "category": "near_domain",
+      "answerable": false,
+      "top1_score": 0.4537
+    },
+    {
+      "id": "n03",
+      "category": "near_domain",
+      "answerable": false,
+      "top1_score": 0.565
+    },
+    {
+      "id": "n04",
+      "category": "near_domain",
+      "answerable": false,
+      "top1_score": 0.5237
+    },
+    {
+      "id": "n05",
+      "category": "near_domain",
+      "answerable": false,
+      "top1_score": 0.4914
+    },
+    {
+      "id": "n06",
+      "category": "near_domain",
+      "answerable": false,
+      "top1_score": 0.468
+    },
+    {
+      "id": "n07",
+      "category": "near_domain",
+      "answerable": false,
+      "top1_score": 0.4919
+    },
+    {
+      "id": "n08",
+      "category": "near_domain",
+      "answerable": false,
+      "top1_score": 0.5639
+    }
+  ],
+  "generation": {
+    "n": 53,
+    "errors": 0,
+    "overall_accuracy": 0.8868,
+    "answerable_accuracy": 0.8718,
+    "false_refusal_rate": 0.1026,
+    "refusal_accuracy": 0.9286,
+    "hallucination_rate": 0.0714,
+    "citation_accuracy": 1.0,
+    "faithfulness": 0.9444,
+    "faithfulness_judged": 36,
+    "latency_mean_s": 3.6119,
+    "latency_p95_s": 5.5663,
+    "by_category": {
+      "factoid": {
+        "n": 30,
+        "accuracy": 0.9667
+      },
+      "multi_source": {
+        "n": 1,
+        "accuracy": 1.0
+      },
+      "near_domain": {
+        "n": 8,
+        "accuracy": 0.875
+      },
+      "no_diacritics": {
+        "n": 2,
+        "accuracy": 0.0
+      },
+      "off_topic": {
+        "n": 6,
+        "accuracy": 1.0
+      },
+      "paraphrase": {
+        "n": 6,
+        "accuracy": 0.6667
+      }
+    }
+  },
+  "generation_records": [
+    {
+      "id": "f01",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 0.8733,
+      "answer": "2 ngày.",
+      "refused": false,
+      "sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f02",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 6.4873,
+      "answer": "Lịch remote phải được quản lý phê duyệt trước 17:00 của ngày làm việc liền trước.",
+      "refused": false,
+      "sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f03",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.5663,
+      "answer": "Khung giờ cốt lõi khi làm việc từ xa là 09:30-11:30 và 14:00-16:30.",
+      "refused": false,
+      "sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f04",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 4.9203,
+      "answer": "VPN công ty.",
+      "refused": false,
+      "sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f05",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.3246,
+      "answer": "Nhân viên phải thông báo cho quản lý khi mất kết nối Internet trên 60 phút.",
+      "refused": false,
+      "sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f06",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.4846,
+      "answer": "Giờ làm việc chính thức của nhân viên là 08:30-17:30, từ thứ Hai đến thứ Sáu.",
+      "refused": false,
+      "sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f07",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.2221,
+      "answer": "Giờ nghỉ trưa là từ 12:00-13:00.",
+      "refused": false,
+      "sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f08",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.2087,
+      "answer": "Đi muộn trên 3 lần trong một tháng sẽ được nhắc nhở bằng văn bản.",
+      "refused": false,
+      "sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": false
+    },
+    {
+      "id": "f09",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.1216,
+      "answer": "12 ngày phép năm.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f10",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.259,
+      "answer": "Đơn nghỉ trên 3 ngày phải gửi trước ít nhất 7 ngày làm việc.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f11",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.2361,
+      "answer": "Đơn nghỉ 1 ngày cần gửi trước ít nhất 1 ngày làm việc.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f12",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.3653,
+      "answer": "Nhân viên cần thông báo cho quản lý trước 09:00.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": false
+    },
+    {
+      "id": "f13",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.1104,
+      "answer": "Nhân viên nghỉ ốm từ 3 ngày liên tiếp có thể được yêu cầu bổ sung giấy tờ theo chính sách nhân sự.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f14",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.2016,
+      "answer": "Hồ sơ hoàn ứng phải nộp trong vòng 7 ngày làm việc sau khi kết thúc chuyến công tác.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f15",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.2826,
+      "answer": "Chi phí công tác không có hóa đơn hợp lệ có thể bị từ chối thanh toán, trừ trường hợp được Finance phê duyệt ngoại lệ.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f16",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.483,
+      "answer": "Đề nghị công tác cần nêu mục đích, địa điểm, thời gian, dự toán chi phí và người phê duyệt.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f17",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.0393,
+      "answer": "Mật khẩu phải có ít nhất 12 ký tự.",
+      "refused": false,
+      "sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f18",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.1147,
+      "answer": "Tài khoản có quyền quản trị bắt buộc phải dùng xác thực đa yếu tố (MFA).",
+      "refused": false,
+      "sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f19",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.3917,
+      "answer": "Dữ liệu trong công ty được phân thành bốn mức độ bảo mật: Công khai, Nội bộ, Mật và Tối mật.",
+      "refused": false,
+      "sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f20",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.3279,
+      "answer": "Nhân viên phải báo ngay cho bộ phận IT khi làm mất thiết bị hoặc phát hiện hư hỏng.",
+      "refused": false,
+      "sources": [
+        "01_noi_quy_nhan_su.pdf",
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ],
+      "correct": false,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f21",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.0603,
+      "answer": "Đội An toàn thông tin.",
+      "refused": false,
+      "sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f22",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 4.8397,
+      "answer": "1.000.000 VNĐ",
+      "refused": false,
+      "sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f23",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 4.9487,
+      "answer": "Quà tặng vượt ngưỡng giá trị phải khai báo với quản lý và bộ phận Compliance.",
+      "refused": false,
+      "sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f24",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.0738,
+      "answer": "Chỉ người được ủy quyền mới được phát ngôn chính thức thay mặt công ty.",
+      "refused": false,
+      "sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f25",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.1627,
+      "answer": "Nhân viên có thể báo cáo vi phạm qua quản lý, HR hoặc kênh Compliance.",
+      "refused": false,
+      "sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f26",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.2304,
+      "answer": "Không, công ty nghiêm cấm hành vi trả đũa người báo cáo thiện chí.",
+      "refused": false,
+      "sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f27",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.0721,
+      "answer": "Vi phạm nghiêm trọng nội quy được xử lý theo quy trình kỷ luật nội bộ và quy định pháp luật áp dụng.",
+      "refused": false,
+      "sources": [
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f28",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.0943,
+      "answer": "Bộ phận IT.",
+      "refused": false,
+      "sources": [
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f29",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.4804,
+      "answer": "Trang phục phải lịch sự, phù hợp môi trường văn phòng. Thẻ nhân viên phải được đeo trong khu vực làm việc.",
+      "refused": false,
+      "sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "f30",
+      "category": "factoid",
+      "answerable": true,
+      "latency": 5.4468,
+      "answer": "Không, nhân viên không đăng tải dữ liệu nội bộ, ảnh màn hình hệ thống hoặc thông tin khách hàng lên mạng xã hội.",
+      "refused": false,
+      "sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "p01",
+      "category": "paraphrase",
+      "answerable": true,
+      "latency": 5.6148,
+      "answer": "Theo quy định của Công ty TNHH Blueorbit (OPS-REM-002, trang 1), nhân viên được đăng ký tối đa 2 ngày làm việc từ xa mỗi tuần, trừ các vị trí yêu cầu làm việc trực tiếp.",
+      "refused": false,
+      "sources": [
+        "03_quy_dinh_lam_viec_tu_xa.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "04_quy_trinh_nghi_phep_cong_tac.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "p02",
+      "category": "paraphrase",
+      "answerable": true,
+      "latency": 5.0377,
+      "answer": "Không được.",
+      "refused": false,
+      "sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "p03",
+      "category": "paraphrase",
+      "answerable": true,
+      "latency": 0.0166,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct": false
+    },
+    {
+      "id": "p04",
+      "category": "paraphrase",
+      "answerable": true,
+      "latency": 4.786,
+      "answer": "Báo ngay cho IT Security.",
+      "refused": false,
+      "sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "p05",
+      "category": "paraphrase",
+      "answerable": true,
+      "latency": 5.1988,
+      "answer": "Không, nhân viên không được gửi dữ liệu khách hàng đến địa chỉ email cá nhân.",
+      "refused": false,
+      "sources": [
+        "02_chinh_sach_bao_mat_thong_tin.pdf",
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "p06",
+      "category": "paraphrase",
+      "answerable": true,
+      "latency": 5.1894,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct": false
+    },
+    {
+      "id": "m01",
+      "category": "multi_source",
+      "answerable": true,
+      "latency": 0.7516,
+      "answer": "Gửi đơn trước ít nhất 3 ngày làm việc.",
+      "refused": false,
+      "sources": [
+        "04_quy_trinh_nghi_phep_cong_tac.pdf",
+        "01_noi_quy_nhan_su.pdf"
+      ],
+      "correct": true,
+      "citation_ok": true,
+      "faithful": true
+    },
+    {
+      "id": "d01",
+      "category": "no_diacritics",
+      "answerable": true,
+      "latency": 0.0161,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct": false
+    },
+    {
+      "id": "d02",
+      "category": "no_diacritics",
+      "answerable": true,
+      "latency": 0.0155,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct": false
+    },
+    {
+      "id": "o01",
+      "category": "off_topic",
+      "answerable": false,
+      "latency": 0.0151,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "o02",
+      "category": "off_topic",
+      "answerable": false,
+      "latency": 0.0135,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "o03",
+      "category": "off_topic",
+      "answerable": false,
+      "latency": 0.0136,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "o04",
+      "category": "off_topic",
+      "answerable": false,
+      "latency": 0.0139,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "o05",
+      "category": "off_topic",
+      "answerable": false,
+      "latency": 0.0165,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "o06",
+      "category": "off_topic",
+      "answerable": false,
+      "latency": 0.0159,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "n01",
+      "category": "near_domain",
+      "answerable": false,
+      "latency": 4.906,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "n02",
+      "category": "near_domain",
+      "answerable": false,
+      "latency": 0.017,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "n03",
+      "category": "near_domain",
+      "answerable": false,
+      "latency": 0.6758,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "n04",
+      "category": "near_domain",
+      "answerable": false,
+      "latency": 0.6945,
+      "answer": "Không có thông tin về hỗ trợ tiền ăn trưa trong tài liệu.",
+      "refused": false,
+      "sources": [
+        "05_quy_tac_ung_xu_doanh_nghiep.pdf",
+        "01_noi_quy_nhan_su.pdf",
+        "03_quy_dinh_lam_viec_tu_xa.pdf"
+      ],
+      "correct_refusal": false,
+      "faithful": true
+    },
+    {
+      "id": "n05",
+      "category": "near_domain",
+      "answerable": false,
+      "latency": 0.0167,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "n06",
+      "category": "near_domain",
+      "answerable": false,
+      "latency": 0.0167,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "n07",
+      "category": "near_domain",
+      "answerable": false,
+      "latency": 0.0157,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    },
+    {
+      "id": "n08",
+      "category": "near_domain",
+      "answerable": false,
+      "latency": 4.945,
+      "answer": "Tôi không tìm thấy thông tin này trong tài liệu.",
+      "refused": true,
+      "sources": [],
+      "correct_refusal": true
+    }
+  ]
+}
