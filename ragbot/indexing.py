@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Tăng số này khi đổi logic đọc/chia tài liệu mà fingerprint không phản ánh được
 # (ví dụ đổi separators, đổi loader) để buộc mọi cache cũ bị rebuild.
-INDEX_SCHEMA_VERSION = 1
+INDEX_SCHEMA_VERSION = 2
 
 META_FILENAME = "meta.json"
 # normalize_embeddings=True + MAX_INNER_PRODUCT => điểm trả về chính là cosine similarity.
@@ -53,7 +53,8 @@ def compute_fingerprint(settings: Settings) -> str:
     digest = hashlib.sha256()
     params = (
         f"schema={INDEX_SCHEMA_VERSION};embedding={settings.embedding_model};"
-        f"chunk_size={settings.chunk_size};chunk_overlap={settings.chunk_overlap}"
+        f"chunking={settings.chunking};chunk_size={settings.chunk_size};"
+        f"chunk_overlap={settings.chunk_overlap}"
     )
     digest.update(params.encode())
     for pdf in sorted(settings.papers_dir.glob("**/*.pdf")):

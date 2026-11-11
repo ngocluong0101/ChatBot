@@ -36,16 +36,21 @@ from ragbot.cli import configure_logging
 from ragbot.config import PROJECT_ROOT, Settings
 from ragbot.errors import RagError
 from ragbot.indexing import load_or_build_index
-from ragbot.pipeline import RagPipeline, build_pipeline
+from ragbot.pipeline import RagPipeline, build_pipeline, build_retriever
 
 DEFAULT_DATASET = PROJECT_ROOT / "evals" / "dataset.jsonl"
 REPORT_SETTINGS_KEYS = (
     "llm_model",
     "embedding_model",
+    "chunking",
     "chunk_size",
     "chunk_overlap",
+    "retrieval_mode",
+    "fetch_k",
+    "rerank_model",
     "top_k",
     "score_threshold",
+    "rerank_threshold",
     "source_score_margin",
     "num_ctx",
 )
@@ -179,14 +184,15 @@ def evaluate_retrieval(
             "id": ex.id,
             "category": ex.category,
             "answerable": ex.answerable,
-            "top1_score": results[0][1] if results else None,
+            # Điểm cao nhất trong các chunk trả về: quyết định "có chunk nào qua ngưỡng" chỉ cần nó.
+            "top1_score": max((score for _, score in results), default=None),
         }
         if ex.answerable:
             flags = [is_relevant_chunk(doc, ex) for doc, _ in results]
             kept = [
                 flag
                 for (_, score), flag in zip(results, flags, strict=True)
-                if score >= settings.score_threshold
+                if score >= settings.active_threshold
             ]
             found = {doc.metadata.get("source") for doc, _ in results}
             record.update(
@@ -227,7 +233,7 @@ def summarize_retrieval(records: Sequence[dict[str, Any]], top_k: int) -> dict[s
 
 
 def sweep_thresholds(
-    records: Sequence[dict[str, Any]], start: float = 0.30, stop: float = 0.80, step: float = 0.02
+    records: Sequence[dict[str, Any]], start: float = 0.0, stop: float = 1.0, step: float = 0.02
 ) -> dict[str, Any]:
     """Với mỗi ngưỡng: bao nhiêu câu có đáp án còn giữ được chunk, bao nhiêu câu không có đáp án bị chặn.
 
@@ -371,6 +377,7 @@ def build_report(
             "mode": mode,
             "judge_model": judge_model,
             "settings": {k: getattr(settings, k) for k in REPORT_SETTINGS_KEYS},
+            "active_threshold": settings.active_threshold,
             "dataset": {
                 "total": len(examples),
                 "answerable": sum(e.answerable for e in examples),
@@ -430,7 +437,8 @@ def format_summary(report: dict[str, Any]) -> str:
             f"  ngưỡng tốt nhất: {best['threshold']} (giữ {_fmt(best['answerable_kept'])} câu có đáp án, "
             f"chặn {_fmt(best['unanswerable_rejected'])} câu không có)"
         )
-    lines.append(f"  ngưỡng đang dùng: {meta['settings']['score_threshold']}")
+    active = meta.get("active_threshold", meta["settings"].get("score_threshold"))
+    lines.append(f"  ngưỡng đang dùng: {active}")
 
     gen = report.get("generation")
     if gen:
@@ -487,7 +495,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     examples = load_dataset(args.dataset)
 
     if args.mode == "retrieval":
-        pipeline = RagPipeline(settings, load_or_build_index(settings), chain=None)
+        vectorstore = load_or_build_index(settings)
+        pipeline = RagPipeline(settings, vectorstore, None, build_retriever(settings, vectorstore))
     else:
         pipeline = build_pipeline(settings)
 

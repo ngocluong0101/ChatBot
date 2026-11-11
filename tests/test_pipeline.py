@@ -34,6 +34,8 @@ class StubChain:
 
 def make(results, chain=None, **settings_kwargs):
     chain = chain or StubChain()
+    settings_kwargs.setdefault("rerank_model", "")  # các test này kiểm tra nhánh dense thuần
+    settings_kwargs.setdefault("retrieval_mode", "dense")
     return pl.RagPipeline(Settings(**settings_kwargs), StubVectorStore(results), chain), chain
 
 
@@ -51,6 +53,43 @@ def test_is_refusal_matches_variants(text):
 
 def test_is_refusal_false_for_real_answer():
     assert not pl.is_refusal("Tối đa 2 ngày mỗi tuần.")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Không có thông tin về hỗ trợ tiền ăn trưa trong tài liệu.",  # biến thể thật từ llama3.2:3b (câu n04)
+        "Tài liệu không đề cập đến chính sách thưởng Tết.",
+        "Tôi không tìm thấy thông tin liên quan.",
+    ],
+)
+def test_is_refusal_matches_real_model_phrasings(text):
+    assert pl.is_refusal(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Nhân viên không có quyền chia sẻ mật khẩu.",
+        "Không được phép gửi dữ liệu khách hàng đến email cá nhân.",
+        "Công ty không cho phép trả đũa người báo cáo.",
+    ],
+)
+def test_is_refusal_does_not_flag_real_answers_that_start_with_negation(text):
+    assert not pl.is_refusal(text)
+
+
+def test_render_includes_section_when_known():
+    answer = pl.Answer("12 ngày.", sources=(pl.Source("01.pdf", 1, 0.9, section="2. Nghỉ phép"),))
+    assert answer.render() == "12 ngày.\n\nNguồn:\n- 01.pdf (trang 1, mục 2. Nghỉ phép)"
+
+
+def test_sources_with_same_page_but_different_sections_are_kept_apart():
+    hits = [
+        (Document(page_content="x", metadata={"source": "a.pdf", "page": 1, "section": "1. A"}), 0.9),
+        (Document(page_content="y", metadata={"source": "a.pdf", "page": 1, "section": "2. B"}), 0.88),
+    ]
+    assert [s.section for s in pl.select_sources(hits, margin=0.08)] == ["1. A", "2. B"]
 
 
 def test_no_hit_above_threshold_skips_llm():
