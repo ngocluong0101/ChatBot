@@ -2,11 +2,13 @@
 
 import logging
 import re
+from pathlib import Path
 
 from langchain_community.document_loaders import DirectoryLoader, UnstructuredFileLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from ragbot import corpus, legal, pdf_loader
 from ragbot.config import Settings
 from ragbot.errors import NoDocumentsError
 
@@ -27,14 +29,32 @@ MARKDOWN_SEPARATORS = [
 
 def load_documents(settings: Settings) -> list[Document]:
     """Đọc PDF theo từng trang và chuẩn hóa metadata về {source, page}."""
-    papers_dir = settings.papers_dir
-    if not papers_dir.is_dir():
-        raise NoDocumentsError(f"Thư mục tài liệu không tồn tại: {papers_dir}")
-    if not any(papers_dir.glob("**/*.pdf")):
-        raise NoDocumentsError(f"Không có file PDF nào trong: {papers_dir}")
+    docs_dir = settings.docs_dir
+    if not docs_dir.is_dir():
+        raise NoDocumentsError(f"Thư mục tài liệu không tồn tại: {docs_dir}")
+    if not any(docs_dir.glob("**/*.pdf")):
+        raise NoDocumentsError(f"Không có file PDF nào trong: {docs_dir}")
 
+    docs = _load_pdfplumber(docs_dir) if settings.pdf_loader == "pdfplumber" else _load_unstructured(docs_dir)
+    if not docs:
+        raise NoDocumentsError(
+            f"Đọc được các file PDF trong {docs_dir} nhưng không trích xuất được văn bản. "
+            "Nếu là PDF scan, cần cài Tesseract (kèm gói ngôn ngữ 'vie') để OCR."
+        )
+    logger.info("Đã đọc %d trang từ %s", len(docs), docs_dir)
+    return docs
+
+
+def _load_pdfplumber(docs_dir: Path) -> list[Document]:
+    docs: list[Document] = []
+    for pdf in sorted(docs_dir.glob("**/*.pdf")):
+        docs.extend(pdf_loader.load_pdf(pdf))
+    return docs
+
+
+def _load_unstructured(docs_dir: Path) -> list[Document]:
     loader = DirectoryLoader(
-        path=str(papers_dir),
+        path=str(docs_dir),
         glob="**/*.pdf",
         loader_cls=UnstructuredFileLoader,
         # mode="paged" để mỗi trang là một Document có page_number (mode "single" không có).
@@ -42,10 +62,8 @@ def load_documents(settings: Settings) -> list[Document]:
         show_progress=True,
         use_multithreading=True,
     )
-    raw_docs = loader.load()
-
     docs: list[Document] = []
-    for doc in raw_docs:
+    for doc in loader.load():
         meta = doc.metadata
         source = meta.get("filename") or meta.get("source", "?")
         if not doc.page_content.strip():
@@ -55,13 +73,6 @@ def load_documents(settings: Settings) -> list[Document]:
         # Loader trả về nhiều metadata nhiễu (tọa độ pixel, parent_id...). Chỉ giữ thứ cần cho citation.
         doc.metadata = {"source": source, "page": meta.get("page_number")}
         docs.append(doc)
-
-    if not docs:
-        raise NoDocumentsError(
-            f"Đọc được các file PDF trong {papers_dir} nhưng không trích xuất được văn bản. "
-            "Nếu là PDF scan, cần cài Tesseract (kèm gói ngôn ngữ 'vie') để OCR."
-        )
-    logger.info("Đã đọc %d trang từ %s", len(docs), papers_dir)
     return docs
 
 
@@ -132,6 +143,12 @@ def split_sections(doc: Document, settings: Settings) -> list[Document]:
     return chunks
 
 
+def _plain(doc: Document) -> Document:
+    """Bỏ dòng đánh dấu bảng (chỉ bộ đọc pdfplumber tạo ra) cho các cách chia không theo cấu trúc."""
+    cleaned = pdf_loader.strip_table_markers(doc.page_content)
+    return doc if cleaned == doc.page_content else Document(page_content=cleaned, metadata=doc.metadata)
+
+
 def split_documents(docs: list[Document], settings: Settings) -> list[Document]:
     fixed_splitter = RecursiveCharacterTextSplitter(
         chunk_size=settings.chunk_size,
@@ -141,10 +158,29 @@ def split_documents(docs: list[Document], settings: Settings) -> list[Document]:
         separators=MARKDOWN_SEPARATORS,
     )
     if settings.chunking == "fixed":
-        return fixed_splitter.split_documents(docs)
+        return fixed_splitter.split_documents([_plain(d) for d in docs])
 
-    chunks: list[Document] = []
+    def by_section(pages: list[Document]) -> list[Document]:
+        chunks: list[Document] = []
+        for doc in map(_plain, pages):
+            # Trang không có mục đánh số (hoặc PDF dạng văn xuôi) rơi về cách cắt theo độ dài.
+            chunks.extend(split_sections(doc, settings) or fixed_splitter.split_documents([doc]))
+        return chunks
+
+    if settings.chunking == "section":
+        return by_section(docs)
+
+    # "legal": gộp các trang của từng file lại vì một Điều có thể kéo dài qua nhiều trang.
+    sources = corpus.load_sources(settings.sources_file)
+    by_file: dict[str, list[Document]] = {}
     for doc in docs:
-        # Trang không có mục đánh số (hoặc PDF dạng văn xuôi) rơi về cách cắt theo độ dài.
-        chunks.extend(split_sections(doc, settings) or fixed_splitter.split_documents([doc]))
+        by_file.setdefault(doc.metadata.get("source", "?"), []).append(doc)
+    chunks: list[Document] = []
+    for filename, pages in by_file.items():
+        info = corpus.resolve_info(filename, sources, pages[0].page_content)
+        legal_chunks = legal.split_legal(pages, info, settings)
+        if legal_chunks is None:
+            logger.info("%s không có cấu trúc Điều/Khoản: chia theo mục/độ dài", filename)
+            legal_chunks = by_section(pages)
+        chunks.extend(legal_chunks)
     return chunks

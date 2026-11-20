@@ -89,3 +89,21 @@ def test_corrupt_cache_is_rebuilt(settings: Settings, fake_ingest):
 def test_no_leftover_tmp_dir(settings: Settings, fake_ingest):
     indexing.load_or_build_index(settings, EMB)
     assert not settings.index_dir.with_name("index.tmp").exists()
+
+
+def test_fingerprint_depends_on_pdf_loader_and_legal_sources(settings: Settings, tmp_path: Path):
+    before = indexing.compute_fingerprint(settings)
+    assert indexing.compute_fingerprint(settings.model_copy(update={"pdf_loader": "pdfplumber"})) != before
+
+    sources = tmp_path / "SOURCES.md"
+    sources.write_text("| File | Tên văn bản |\n|---|---|\n| a.pdf | Luật A |\n", encoding="utf-8")
+    legal = settings.model_copy(update={"chunking": "legal", "sources_file": sources})
+    first = indexing.compute_fingerprint(legal)
+    sources.write_text("| File | Tên văn bản |\n|---|---|\n| a.pdf | Luật A sửa tên |\n", encoding="utf-8")
+    assert indexing.compute_fingerprint(legal) != first
+
+    # chunking khác "legal" không quan tâm SOURCES.md
+    fixed = settings.model_copy(update={"chunking": "fixed", "sources_file": sources})
+    fingerprint = indexing.compute_fingerprint(fixed)
+    sources.write_text("| File | Tên văn bản |\n|---|---|\n| a.pdf | Đổi nữa |\n", encoding="utf-8")
+    assert indexing.compute_fingerprint(fixed) == fingerprint

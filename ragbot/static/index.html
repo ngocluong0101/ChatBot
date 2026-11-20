@@ -98,7 +98,7 @@ function renderSources(el, sources) {
   const list = document.createElement("ul");
   for (const s of sources) {
     const li = document.createElement("li");
-    li.textContent = `${s.file} (trang ${s.page ?? "?"}${s.section ? ", mục " + s.section : ""})`;
+    li.textContent = s.citation ?? `${s.file} (trang ${s.page ?? "?"}${s.section ? ", mục " + s.section : ""})`;
     list.append(li);
   }
   box.append(list);

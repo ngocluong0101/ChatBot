@@ -174,3 +174,62 @@ def test_check_ollama_accepts_untagged_name_as_latest(monkeypatch):
 
     monkeypatch.setattr(pl.ollama, "Client", Fake)
     pl.check_ollama(Settings(llm_model="llama3.2"))
+
+
+# --- trích dẫn văn bản pháp luật --------------------------------------------------------------------
+
+
+def legal_doc(**extra) -> Document:
+    meta = {
+        "source": "blld.pdf",
+        "page": 41,
+        "section": "Điều 113. Nghỉ hằng năm",
+        "doc_title": "Bộ luật Lao động 2019",
+        "dieu": "113",
+        "type": "text",
+    }
+    return Document(page_content="nội dung", metadata={**meta, **extra})
+
+
+def test_citation_for_legal_chunk_names_document_dieu_khoan_and_page():
+    (source,) = pl.select_sources([(legal_doc(khoan="1"), 0.9)], margin=0.08)
+    assert pl.format_citation(source) == "Bộ luật Lao động 2019, Điều 113, Khoản 1 (trang 41)"
+    assert pl.Answer("12 ngày.", sources=(source,)).render() == (
+        "12 ngày.\n\nNguồn:\n- Bộ luật Lao động 2019, Điều 113, Khoản 1 (trang 41)"
+    )
+
+
+def test_citation_variants_whole_dieu_table_appendix_and_preamble():
+    cites = [
+        pl.format_citation(s)
+        for doc in (
+            legal_doc(),
+            legal_doc(type="table", khoan="2"),
+            legal_doc(dieu=None, phu_luc="I", section="Phụ lục I"),
+            legal_doc(dieu=None, type="preamble"),
+        )
+        for s in pl.select_sources([(doc, 0.9)], margin=0.08)
+    ]
+    assert cites == [
+        "Bộ luật Lao động 2019, Điều 113 (trang 41)",
+        "Bộ luật Lao động 2019, Điều 113, Khoản 2, bảng (trang 41)",
+        "Bộ luật Lao động 2019, Phụ lục I (trang 41)",
+        "Bộ luật Lao động 2019 (trang 41)",
+    ]
+
+
+def test_sources_of_same_dieu_but_different_khoan_or_type_are_kept_apart():
+    hits = [
+        (legal_doc(khoan="1"), 0.9),
+        (legal_doc(khoan="2"), 0.89),
+        (legal_doc(khoan="2", type="table"), 0.88),
+        (legal_doc(khoan="2"), 0.5),  # trùng khóa với dòng 2, điểm thấp hơn: gộp
+    ]
+    sources = pl.select_sources(hits, margin=0.08)
+    assert [(s.khoan, s.kind) for s in sources] == [("1", "text"), ("2", "text"), ("2", "table")]
+
+
+def test_context_label_prefers_document_title_over_filename():
+    ctx = pl.format_context([legal_doc(), doc("a.pdf", 3, "x")])
+    assert ctx.startswith("[Tài liệu: Bộ luật Lao động 2019, trang 41]")
+    assert "[Tài liệu: a.pdf, trang 3]" in ctx

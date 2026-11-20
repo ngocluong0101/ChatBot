@@ -67,6 +67,12 @@ class Source:
     page: int | None
     score: float
     section: str | None = None
+    # Chỉ có với chunk từ văn bản pháp luật (chunking="legal"); xem ragbot/legal.py.
+    title: str | None = None  # tên văn bản, ví dụ "Bộ luật Lao động 2019"
+    dieu: str | None = None
+    khoan: str | None = None
+    phu_luc: str | None = None
+    kind: str | None = None  # "text" | "table" | "preamble"
 
 
 @dataclass(frozen=True)
@@ -95,11 +101,26 @@ class StreamEvent:
     answer: Answer | None = None
 
 
+def format_citation(source: Source) -> str:
+    """ "Bộ luật Lao động 2019, Điều 113, Khoản 1 (trang 41)"; nguồn cũ: "file.pdf (trang 1, mục 2. Tên)"."""
+    page = f"trang {source.page if source.page is not None else '?'}"
+    if source.title:
+        parts = [source.title]
+        if source.dieu:
+            parts.append(f"Điều {source.dieu}")
+        if source.phu_luc:
+            parts.append(f"Phụ lục {source.phu_luc}")
+        if source.khoan:
+            parts.append(f"Khoản {source.khoan}")
+        if source.kind == "table":
+            parts.append("bảng")
+        return f"{', '.join(parts)} ({page})"
+    where = f"{page}, mục {source.section}" if source.section else page
+    return f"{source.file} ({where})"
+
+
 def _format_source(source: Source) -> str:
-    where = f"trang {source.page if source.page is not None else '?'}"
-    if source.section:
-        where += f", mục {source.section}"
-    return f"- {source.file} ({where})"
+    return f"- {format_citation(source)}"
 
 
 # LLM nhỏ hay diễn đạt lại câu từ chối ("Không có thông tin về...", "tài liệu không đề cập...").
@@ -141,7 +162,8 @@ def clean_rewrite(raw: str, original: str) -> str:
 
 def format_context(docs: list[Document]) -> str:
     return "\n\n".join(
-        f"[Tài liệu: {d.metadata.get('source', '?')}, trang {d.metadata.get('page', '?')}]\n{d.page_content}"
+        f"[Tài liệu: {d.metadata.get('doc_title') or d.metadata.get('source', '?')}, "
+        f"trang {d.metadata.get('page', '?')}]\n{d.page_content}"
         for d in docs
     )
 
@@ -155,13 +177,30 @@ def select_sources(hits: list[tuple[Document, float]], margin: float) -> tuple[S
     if not hits:
         return ()
     top_score = max(score for _, score in hits)
-    best: dict[tuple[str, int | None, str | None], Source] = {}
+    best: dict[tuple[Any, ...], Source] = {}
     for doc, score in hits:
         if score < top_score - margin:
             continue
-        key = (doc.metadata.get("source", "?"), doc.metadata.get("page"), doc.metadata.get("section"))
+        meta = doc.metadata
+        key = (
+            meta.get("source", "?"),
+            meta.get("page"),
+            meta.get("section"),
+            meta.get("khoan"),
+            meta.get("type"),
+        )
         if key not in best or score > best[key].score:
-            best[key] = Source(file=key[0], page=key[1], score=score, section=key[2])
+            best[key] = Source(
+                file=key[0],
+                page=key[1],
+                score=score,
+                section=key[2],
+                title=meta.get("doc_title"),
+                dieu=meta.get("dieu"),
+                khoan=key[3],
+                phu_luc=meta.get("phu_luc"),
+                kind=key[4] if meta.get("doc_title") else None,
+            )
     return tuple(sorted(best.values(), key=lambda s: s.score, reverse=True))
 
 
@@ -285,6 +324,18 @@ def build_retriever(settings: Settings, vectorstore: FAISS) -> Retriever:
     return Retriever(settings, vectorstore, reranker)
 
 
+def build_rewrite_chain(settings: Settings) -> Any:
+    # Câu hỏi viết lại chỉ cần một dòng ngắn: giới hạn num_predict để không lan man tốn thời gian.
+    rewriter = ChatOllama(
+        model=settings.llm_model,
+        temperature=0,
+        num_ctx=settings.num_ctx,
+        num_predict=128,
+        base_url=settings.ollama_base_url,
+    )
+    return ChatPromptTemplate.from_template(REWRITE_PROMPT) | rewriter | StrOutputParser()
+
+
 def build_pipeline(settings: Settings | None = None) -> RagPipeline:
     settings = settings or get_settings()
     check_ollama(settings)
@@ -296,15 +347,10 @@ def build_pipeline(settings: Settings | None = None) -> RagPipeline:
         base_url=settings.ollama_base_url,
     )
     chain = ChatPromptTemplate.from_template(PROMPT_TEMPLATE) | llm | StrOutputParser()
-    # Câu hỏi viết lại chỉ cần một dòng ngắn: giới hạn num_predict để không lan man tốn thời gian.
-    rewriter = ChatOllama(
-        model=settings.llm_model,
-        temperature=0,
-        num_ctx=settings.num_ctx,
-        num_predict=128,
-        base_url=settings.ollama_base_url,
-    )
-    rewrite_chain = ChatPromptTemplate.from_template(REWRITE_PROMPT) | rewriter | StrOutputParser()
     return RagPipeline(
-        settings, vectorstore, chain, build_retriever(settings, vectorstore), rewrite_chain=rewrite_chain
+        settings,
+        vectorstore,
+        chain,
+        build_retriever(settings, vectorstore),
+        rewrite_chain=build_rewrite_chain(settings),
     )

@@ -151,3 +151,44 @@ def test_homepage_is_served_without_a_key():
         res = client.get("/")
     assert res.status_code == 200 and "text/html" in res.headers["content-type"]
     assert "/chat/stream" in res.text
+
+
+LEGAL_SOURCE = Source(
+    "blld.pdf",
+    41,
+    0.9,
+    section="Điều 113. Nghỉ hằng năm",
+    title="Bộ luật Lao động 2019",
+    dieu="113",
+    khoan="1",
+    kind="text",
+)
+
+
+def test_chat_adds_legal_citation_fields_only_for_legal_sources():
+    answer = Answer("12 ngày.", sources=(LEGAL_SOURCE, Source("03.pdf", 1, 0.8)), question="q")
+    client, _ = make_client(StubPipeline(answer))
+
+    with client:
+        sources = client.post("/chat", json={"question": "q"}).json()["sources"]
+
+    assert sources[0] == {
+        "file": "blld.pdf",
+        "page": 41,
+        "section": "Điều 113. Nghỉ hằng năm",
+        "score": 0.9,
+        "title": "Bộ luật Lao động 2019",
+        "dieu": "113",
+        "khoan": "1",
+        "kind": "text",
+        "citation": "Bộ luật Lao động 2019, Điều 113, Khoản 1 (trang 41)",
+    }
+    assert sources[1] == {"file": "03.pdf", "page": 1, "section": None, "score": 0.8}  # dạng cũ giữ nguyên
+
+
+def test_stream_done_event_carries_the_same_citation():
+    client, _ = make_client(StubPipeline(Answer("12 ngày.", sources=(LEGAL_SOURCE,), question="q")))
+    with client:
+        events = parse_sse(client.post("/chat/stream", json={"question": "q"}).text)
+    done = next(data for name, data in events if name == "done")
+    assert done["sources"][0]["citation"] == "Bộ luật Lao động 2019, Điều 113, Khoản 1 (trang 41)"

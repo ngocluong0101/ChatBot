@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from ragbot.config import Settings, get_settings
 from ragbot.errors import RagError
-from ragbot.pipeline import Answer, RagPipeline, Turn, build_pipeline
+from ragbot.pipeline import Answer, RagPipeline, Source, Turn, build_pipeline, format_citation
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,15 @@ class SourceOut(BaseModel):
     page: int | None
     section: str | None
     score: float
+    # Chỉ xuất hiện với văn bản pháp luật (các trường không đặt bị bỏ khỏi JSON, xem to_answer_out).
+    title: str | None = None
+    dieu: str | None = None
+    khoan: str | None = None
+    phu_luc: str | None = None
+    kind: str | None = None
+    citation: str | None = (
+        None  # chuỗi trích dẫn đầy đủ, ví dụ "Bộ luật Lao động 2019, Điều 113, Khoản 1 (trang 41)"
+    )
 
 
 class AnswerOut(BaseModel):
@@ -62,14 +71,27 @@ class AnswerOut(BaseModel):
     sources: list[SourceOut]
 
 
+def to_source_out(source: Source) -> SourceOut:
+    """Nguồn cũ giữ nguyên dạng {file, page, section, score}; trường pháp luật chỉ thêm khi có giá trị."""
+    optional = {
+        "title": source.title,
+        "dieu": source.dieu,
+        "khoan": source.khoan,
+        "phu_luc": source.phu_luc,
+        "kind": source.kind,
+    }
+    extra = {k: v for k, v in optional.items() if v is not None}
+    if source.title:
+        extra["citation"] = format_citation(source)
+    return SourceOut(file=source.file, page=source.page, section=source.section, score=source.score, **extra)
+
+
 def to_answer_out(answer: Answer) -> AnswerOut:
     return AnswerOut(
         text=answer.text,
         refused=answer.refused,
         question=answer.question,
-        sources=[
-            SourceOut(file=s.file, page=s.page, section=s.section, score=s.score) for s in answer.sources
-        ],
+        sources=[to_source_out(s) for s in answer.sources],
     )
 
 
@@ -119,7 +141,7 @@ def create_app(pipeline: RagPipeline | None = None, settings: Settings | None = 
             "auth_required": bool(settings.api_key),
         }
 
-    @app.post("/chat", response_model=AnswerOut, dependencies=auth)
+    @app.post("/chat", response_model=AnswerOut, response_model_exclude_unset=True, dependencies=auth)
     def chat(body: ChatRequest, request: Request) -> AnswerOut:
         with lock:
             try:
@@ -137,7 +159,7 @@ def create_app(pipeline: RagPipeline | None = None, settings: Settings | None = 
                 try:
                     for event in active_pipeline.ask_stream(body.question, to_turns(body.history)):
                         if event.kind == "done" and event.answer is not None:
-                            yield sse("done", to_answer_out(event.answer).model_dump())
+                            yield sse("done", to_answer_out(event.answer).model_dump(exclude_unset=True))
                         else:
                             yield sse(event.kind, {"text": event.text})
                 except RagError as exc:

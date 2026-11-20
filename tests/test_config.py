@@ -41,3 +41,23 @@ def test_log_level_is_normalized():
 def test_invalid_values_are_rejected(kwargs):
     with pytest.raises(ValidationError):
         Settings(**kwargs)
+
+
+def test_docs_dir_accepts_new_and_legacy_names(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    assert Settings().docs_dir == PROJECT_ROOT / "papers"
+    assert Settings(docs_dir=tmp_path).papers_dir == tmp_path  # tên cũ còn đọc được
+    assert Settings(papers_dir=tmp_path).docs_dir == tmp_path
+
+    monkeypatch.setenv("RAG_PAPERS_DIR", str(tmp_path / "cu"))
+    assert Settings().docs_dir == tmp_path / "cu"
+    monkeypatch.setenv("RAG_DOCS_DIR", str(tmp_path / "moi"))
+    assert Settings().docs_dir == tmp_path / "moi"  # tên mới thắng khi có cả hai
+
+
+def test_legal_options_defaults_and_validation():
+    s = Settings()
+    assert s.pdf_loader == "unstructured"
+    assert s.sources_file == PROJECT_ROOT / "data" / "SOURCES.md"
+    assert Settings(chunking="legal", pdf_loader="pdfplumber").chunking == "legal"
+    with pytest.raises(ValidationError):
+        Settings(pdf_loader="ocr")

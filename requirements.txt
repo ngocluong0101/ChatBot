@@ -14,3 +14,4 @@ uvicorn==0.40.0
 torch==2.10.0
 torchvision==0.25.0
 transformers==5.15.0
+pdfplumber==0.11.10

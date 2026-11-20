@@ -5,11 +5,12 @@ Ví dụ trong `.env`:
     RAG_TOP_K=4
 """
 
+from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -26,8 +27,19 @@ class Settings(BaseSettings):
 
     # Dữ liệu. Đường dẫn tương đối được hiểu là tương đối so với thư mục gốc dự án,
     # để chạy từ thư mục nào cũng được.
-    papers_dir: Path = Path("papers")
+    # Thư mục chứa PDF (RAG_DOCS_DIR). Tên cũ `papers_dir` / RAG_PAPERS_DIR vẫn dùng được. Khi có
+    # validation_alias, pydantic-settings không tự thêm tiền tố nên phải liệt kê đủ các tên.
+    docs_dir: Path = Field(
+        default=Path("papers"),
+        validation_alias=AliasChoices("rag_docs_dir", "rag_papers_dir", "docs_dir", "papers_dir"),
+    )
     index_dir: Path = Path(".index")
+    # Bảng tra cứu tên/số hiệu/ngày của từng văn bản (xem data/SOURCES.md). Không có file thì
+    # tên văn bản được suy ra từ tên file.
+    sources_file: Path = Path("data/SOURCES.md")
+    # "unstructured": đọc theo trang, không nhận diện bảng (giữ cho bộ papers/ cũ).
+    # "pdfplumber": giữ thứ tự dòng, nhận diện bảng có đường kẻ; cần cho chunking="legal".
+    pdf_loader: Literal["unstructured", "pdfplumber"] = "unstructured"
 
     # Model
     embedding_model: str = "BAAI/bge-m3"
@@ -39,8 +51,10 @@ class Settings(BaseSettings):
     temperature: float = 0.0
 
     # Chunking. "section": tách theo mục đánh số "1., 2., ..." (kèm tiêu đề tài liệu);
-    # "fixed": cắt theo độ dài. chunk_size/overlap dùng cho "fixed" và cho mục dài quá chunk_size.
-    chunking: Literal["fixed", "section"] = "section"
+    # "fixed": cắt theo độ dài; "legal": văn bản pháp luật, tách theo Chương/Mục/Điều/Khoản/Phụ lục,
+    # bảng thành chunk riêng; văn bản không có cấu trúc "Điều" rơi về "section" rồi "fixed".
+    # chunk_size/overlap dùng cho "fixed" và cho mục/khoản dài quá chunk_size.
+    chunking: Literal["fixed", "section", "legal"] = "section"
     chunk_size: int = 1200
     chunk_overlap: int = 200
 
@@ -71,10 +85,15 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
 
-    @field_validator("papers_dir", "index_dir")
+    @field_validator("docs_dir", "index_dir", "sources_file")
     @classmethod
     def _resolve_relative(cls, value: Path) -> Path:
         return value if value.is_absolute() else PROJECT_ROOT / value
+
+    @property
+    def papers_dir(self) -> Path:
+        """Tên cũ của `docs_dir`, giữ lại để mã/test cũ không vỡ."""
+        return self.docs_dir
 
     @field_validator("log_level")
     @classmethod
@@ -102,6 +121,22 @@ class Settings(BaseSettings):
         if not -1.0 <= self.score_threshold <= 1.0:
             raise ValueError("score_threshold là cosine similarity nên phải nằm trong [-1, 1]")
         return self
+
+
+# Tên cũ của một số tham số, vẫn được nhận ở dòng lệnh.
+LEGACY_KEYS = {"papers_dir": "docs_dir"}
+
+
+def parse_overrides(pairs: Sequence[str]) -> dict[str, str]:
+    """Đọc các tham số dòng lệnh dạng `--set khóa=giá_trị` thành dict để truyền vào Settings(**...)."""
+    overrides: dict[str, str] = {}
+    for pair in pairs:
+        key, sep, value = pair.partition("=")
+        key = LEGACY_KEYS.get(key, key)
+        if not sep or key not in Settings.model_fields:
+            raise SystemExit(f"--set không hợp lệ: {pair!r}. Khóa hợp lệ: {', '.join(Settings.model_fields)}")
+        overrides[key] = value
+    return overrides
 
 
 @lru_cache

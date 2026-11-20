@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Tăng số này khi đổi logic đọc/chia tài liệu mà fingerprint không phản ánh được
 # (ví dụ đổi separators, đổi loader) để buộc mọi cache cũ bị rebuild.
-INDEX_SCHEMA_VERSION = 2
+INDEX_SCHEMA_VERSION = 3  # v3: metadata văn bản pháp luật (Điều/Khoản), bộ đọc pdfplumber
 
 META_FILENAME = "meta.json"
 # normalize_embeddings=True + MAX_INNER_PRODUCT => điểm trả về chính là cosine similarity.
@@ -54,11 +54,14 @@ def compute_fingerprint(settings: Settings) -> str:
     params = (
         f"schema={INDEX_SCHEMA_VERSION};embedding={settings.embedding_model};"
         f"chunking={settings.chunking};chunk_size={settings.chunk_size};"
-        f"chunk_overlap={settings.chunk_overlap}"
+        f"chunk_overlap={settings.chunk_overlap};pdf_loader={settings.pdf_loader}"
     )
     digest.update(params.encode())
-    for pdf in sorted(settings.papers_dir.glob("**/*.pdf")):
-        digest.update(pdf.relative_to(settings.papers_dir).as_posix().encode())
+    # Tên/số hiệu văn bản nằm trong nội dung chunk nên đổi SOURCES.md cũng phải dựng lại index.
+    if settings.chunking == "legal" and settings.sources_file.is_file():
+        digest.update(_file_sha256(settings.sources_file).encode())
+    for pdf in sorted(settings.docs_dir.glob("**/*.pdf")):
+        digest.update(pdf.relative_to(settings.docs_dir).as_posix().encode())
         digest.update(_file_sha256(pdf).encode())
     return digest.hexdigest()
 
