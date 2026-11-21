@@ -1,0 +1,69 @@
+{
+  "levels": [
+    {
+      "users": 1,
+      "requests": 20,
+      "ok": 20,
+      "errors": {},
+      "error_rate": 0.0,
+      "wall_seconds": 39.7,
+      "throughput_rps": 0.504,
+      "latency_seconds": {
+        "n": 20,
+        "mean": 1.984,
+        "p50": 2.018,
+        "p95": 3.851,
+        "p99": 5.025,
+        "max": 5.319
+      },
+      "ttft_seconds": {
+        "n": 20,
+        "mean": 1.044,
+        "p50": 1.184,
+        "p95": 1.812,
+        "p99": 1.866,
+        "max": 1.879
+      },
+      "latency_seconds_answered": {
+        "n": 16,
+        "mean": 2.376,
+        "p50": 2.091,
+        "p95": 4.16,
+        "p99": 5.087,
+        "max": 5.319
+      },
+      "refused": 4,
+      "stream_events_per_second_per_user": 48.1,
+      "gpu": {
+        "vram_peak_mib": 6789,
+        "vram_mean_mib": 6787,
+        "vram_total_mib": 8188,
+        "gpu_util_mean_pct": 86.1,
+        "gpu_util_peak_pct": 100,
+        "samples": 39
+      },
+      "requests_per_user": 20
+    }
+  ],
+  "gpu_idle_before_mib": 1747.0,
+  "questions": {
+    "n": 40,
+    "seed": 7,
+    "min_per_user": 3,
+    "min_total": 20
+  },
+  "meta": {
+    "label": "probe-embcpu",
+    "note": "probe",
+    "created_at": "2026-11-21T05:53:58+00:00",
+    "url": "http://127.0.0.1:8000",
+    "server": {
+      "status": "ok",
+      "llm_model": "qwen2.5:7b-instruct",
+      "rerank_model": "BAAI/bge-reranker-v2-m3",
+      "chunks": 1881,
+      "auth_required": false
+    },
+    "machine": "x86_64"
+  }
+}

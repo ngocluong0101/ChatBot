@@ -1,4 +1,5 @@
 import json
+import threading
 
 import pytest
 from fastapi.testclient import TestClient
@@ -192,3 +193,140 @@ def test_stream_done_event_carries_the_same_citation():
         events = parse_sse(client.post("/chat/stream", json={"question": "q"}).text)
     done = next(data for name, data in events if name == "done")
     assert done["sources"][0]["citation"] == "Bộ luật Lao động 2019, Điều 113, Khoản 1 (trang 41)"
+
+
+# ---------------------------------------------------------------- đồng thời, backpressure, /metrics
+
+
+class GatedPipeline(StubPipeline):
+    """`ask` chỉ trả về khi được thả cổng; đếm số lượt chạy chồng lên nhau."""
+
+    def __init__(self):
+        super().__init__()
+        self.gate = threading.Event()
+        self.entered = threading.Semaphore(0)
+        self.active = 0
+        self.peak = 0
+        self._lock = threading.Lock()
+
+    def ask(self, question, history=()):
+        with self._lock:
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+        self.entered.release()
+        self.gate.wait(10)
+        with self._lock:
+            self.active -= 1
+        return self.answer
+
+
+def fire(client, results, index, path="/chat"):
+    results[index] = client.post(path, json={"question": f"câu {index}"})
+
+
+def test_semaphore_limits_requests_in_flight_and_rejects_the_overflow_with_503():
+    pipeline = GatedPipeline()
+    client, _ = make_client(pipeline, max_concurrent_requests=2, queue_timeout_seconds=0.3)
+    results: dict[int, object] = {}
+    with client:
+        workers = [threading.Thread(target=fire, args=(client, results, i)) for i in range(2)]
+        for worker in workers:
+            worker.start()
+        for _ in range(2):
+            assert pipeline.entered.acquire(timeout=5)  # cả hai slot đều bận
+        overflow = client.post("/chat", json={"question": "quá tải"})
+        pipeline.gate.set()
+        for worker in workers:
+            worker.join(5)
+        metrics = client.get("/metrics").text
+
+    assert overflow.status_code == 503 and overflow.headers["retry-after"] == "1"
+    assert [results[i].status_code for i in range(2)] == [200, 200]
+    assert pipeline.peak == 2, "hai lượt phải chạy chồng lên nhau khi có hai slot"
+    assert 'ragbot_requests_total{endpoint="chat",outcome="busy"} 1.0' in metrics
+    assert 'ragbot_requests_total{endpoint="chat",outcome="ok"} 2.0' in metrics
+
+
+def test_single_slot_runs_requests_one_at_a_time():
+    pipeline = GatedPipeline()
+    pipeline.gate.set()
+    client, _ = make_client(pipeline, max_concurrent_requests=1, queue_timeout_seconds=5)
+    results: dict[int, object] = {}
+    with client:
+        workers = [threading.Thread(target=fire, args=(client, results, i)) for i in range(4)]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(10)
+    assert all(r.status_code == 200 for r in results.values()) and pipeline.peak == 1
+
+
+def test_slot_is_released_after_an_error_and_after_a_stream():
+    client, _ = make_client(StubPipeline(error=LLMUnavailableError("tắt")), max_concurrent_requests=1)
+    with client:
+        for _ in range(3):  # nếu slot rò thì lượt thứ hai đã bị chặn
+            assert client.post("/chat", json={"question": "hi"}).status_code == 503
+        for _ in range(2):
+            assert "error" in client.post("/chat/stream", json={"question": "hi"}).text
+        metrics = client.get("/metrics").text
+    assert 'ragbot_requests_total{endpoint="chat",outcome="error"} 3.0' in metrics
+    assert 'ragbot_requests_total{endpoint="chat_stream",outcome="error"} 2.0' in metrics
+
+
+def test_stream_overflow_gets_503_before_any_event_is_sent():
+    pipeline = GatedPipeline()
+    client, _ = make_client(pipeline, max_concurrent_requests=1, queue_timeout_seconds=0.2)
+    results: dict[int, object] = {}
+    with client:
+        holder = threading.Thread(target=fire, args=(client, results, 0))
+        holder.start()
+        assert pipeline.entered.acquire(timeout=5)
+        res = client.post("/chat/stream", json={"question": "quá tải"})
+        pipeline.gate.set()
+        holder.join(5)
+    assert res.status_code == 503 and "text/event-stream" not in res.headers.get("content-type", "")
+
+
+def test_slot_release_is_idempotent_and_finalizer_frees_an_unstarted_stream():
+    import gc
+    import threading as th
+    import weakref
+
+    from ragbot.api import Slot
+    from ragbot.telemetry import Telemetry
+
+    semaphore = th.BoundedSemaphore(1)
+    semaphore.acquire()
+    slot = Slot(semaphore, Telemetry())
+    slot.release()
+    slot.release()  # lần hai không được làm semaphore vượt giá trị khởi tạo (BoundedSemaphore sẽ ném lỗi)
+    assert semaphore.acquire(blocking=False)
+
+    def never_started():
+        yield "x"
+
+    gen = never_started()
+    slot2 = Slot(th.BoundedSemaphore(1), Telemetry())
+    freed = []
+    slot2.release = lambda: freed.append(1)  # type: ignore[method-assign]
+    weakref.finalize(gen, slot2.release)
+    del gen
+    gc.collect()
+    assert freed == [1]
+
+
+def test_metrics_endpoint_is_404_when_disabled_and_health_is_unchanged():
+    client, _ = make_client(metrics_enabled=False)
+    with client:
+        assert client.get("/metrics").status_code == 404
+        assert client.get("/health").status_code == 200
+
+
+def test_metrics_endpoint_serves_prometheus_text():
+    client, _ = make_client()
+    with client:
+        client.post("/chat", json={"question": "hi"})
+        res = client.get("/metrics")
+    assert res.status_code == 200 and res.headers["content-type"].startswith("text/plain")
+    assert 'ragbot_requests_total{endpoint="chat",outcome="ok"} 1.0' in res.text
+    assert "ragbot_request_seconds_bucket" in res.text

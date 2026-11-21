@@ -2,15 +2,19 @@
 
 Chạy:  uvicorn ragbot.api:app --host 0.0.0.0 --port 8000
 
-Các model (embedding, reranker, LLM) dùng chung một GPU/CPU và không đảm bảo thread-safe, nên mọi
-lượt hỏi được xếp hàng qua một khóa: phù hợp triển khai nội bộ một nhóm nhỏ, không phải dịch vụ
-đồng thời cao. Muốn mở rộng, chạy nhiều tiến trình hoặc thay lớp suy luận bằng một server riêng.
+Đồng thời: mỗi lượt hỏi phải giành một "slot" của semaphore (`RAG_MAX_CONCURRENT_REQUESTS`, nên bằng
+OLLAMA_NUM_PARALLEL). Chờ quá `RAG_QUEUE_TIMEOUT_SECONDS` thì trả 503 kèm Retry-After thay vì để hàng đợi
+dài vô hạn. Embedding/reranker/Qdrant nhúng không an toàn khi gọi đồng thời nên phần truy hồi vẫn xếp hàng
+qua một khóa trong `Retriever`; phần chậm nhất, LLM, chạy chồng lên nhau tới số slot cho phép.
+Quan sát: /metrics (Prometheus) và tracing OpenTelemetry, xem ragbot/telemetry.py.
 """
 
 import json
 import logging
 import secrets
 import threading
+import time
+import weakref
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,12 +22,13 @@ from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
 from ragbot.config import Settings, get_settings
 from ragbot.errors import RagError
 from ragbot.pipeline import Answer, RagPipeline, Source, Turn, build_pipeline, format_citation
+from ragbot.telemetry import Telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +108,47 @@ def sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+class Slot:
+    """Một slot xử lý đã giành được; `release()` an toàn khi gọi nhiều lần."""
+
+    def __init__(self, semaphore: threading.BoundedSemaphore, telemetry: Telemetry) -> None:
+        self._semaphore = semaphore
+        self._telemetry = telemetry
+        self._lock = threading.Lock()
+        self._held = True
+        self.started = time.perf_counter()
+        self._flight = telemetry.in_flight()
+        self._flight.__enter__()
+
+    def release(self) -> None:
+        with self._lock:
+            if not self._held:
+                return
+            self._held = False
+        self._flight.__exit__(None, None, None)
+        self._semaphore.release()
+
+
 def create_app(pipeline: RagPipeline | None = None, settings: Settings | None = None) -> FastAPI:
     """`pipeline` truyền vào để test; mặc định dựng pipeline thật khi khởi động."""
     settings = settings or get_settings()
-    lock = threading.Lock()
+    semaphore = threading.BoundedSemaphore(settings.max_concurrent_requests)
+    telemetry = Telemetry(settings)
+
+    def acquire_slot(endpoint: str) -> Slot:
+        """Chờ tối đa `queue_timeout_seconds` để được xử lý; quá hạn thì 503 (backpressure)."""
+        waited = time.perf_counter()
+        with telemetry.waiting():
+            got = semaphore.acquire(timeout=settings.queue_timeout_seconds)
+        telemetry.observe_queue_wait(time.perf_counter() - waited)
+        if not got:
+            telemetry.observe_request(endpoint, "busy")
+            raise HTTPException(
+                status_code=503,
+                detail="Hệ thống đang quá tải, hãy thử lại sau",
+                headers={"Retry-After": str(max(1, int(settings.queue_timeout_seconds)))},
+            )
+        return Slot(semaphore, telemetry)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -118,6 +160,8 @@ def create_app(pipeline: RagPipeline | None = None, settings: Settings | None = 
             except RagError as exc:
                 logger.error("Không khởi động được pipeline: %s", exc)
                 raise
+        if isinstance(app.state.pipeline, RagPipeline):
+            app.state.pipeline.telemetry = telemetry
         yield
 
     app = FastAPI(title="RAG Chatbot", lifespan=lifespan)
@@ -141,33 +185,56 @@ def create_app(pipeline: RagPipeline | None = None, settings: Settings | None = 
             "auth_required": bool(settings.api_key),
         }
 
+    @app.get("/metrics", include_in_schema=False)
+    def metrics() -> Response:
+        if not telemetry.metrics:
+            raise HTTPException(status_code=404, detail="metrics đang tắt (RAG_METRICS_ENABLED=false)")
+        from prometheus_client import CONTENT_TYPE_LATEST
+
+        return Response(telemetry.render_metrics(), media_type=CONTENT_TYPE_LATEST)
+
     @app.post("/chat", response_model=AnswerOut, response_model_exclude_unset=True, dependencies=auth)
     def chat(body: ChatRequest, request: Request) -> AnswerOut:
-        with lock:
+        slot = acquire_slot("chat")
+        outcome = "error"
+        try:
             try:
                 answer = request.app.state.pipeline.ask(body.question, to_turns(body.history))
             except RagError as exc:
                 raise HTTPException(status_code=503, detail=str(exc)) from exc
+            outcome = "refused" if answer.refused else "ok"
+        finally:
+            telemetry.observe_request("chat", outcome, time.perf_counter() - slot.started)
+            slot.release()
         return to_answer_out(answer)
 
     @app.post("/chat/stream", dependencies=auth)
     def chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
         active_pipeline: RagPipeline = request.app.state.pipeline
+        # Giành slot TRƯỚC khi trả response: quá tải còn trả được 503 (đã gửi header 200 thì không đổi được).
+        slot = acquire_slot("chat_stream")
 
         def generate() -> Iterator[str]:
-            with lock:
-                try:
-                    for event in active_pipeline.ask_stream(body.question, to_turns(body.history)):
-                        if event.kind == "done" and event.answer is not None:
-                            yield sse("done", to_answer_out(event.answer).model_dump(exclude_unset=True))
-                        else:
-                            yield sse(event.kind, {"text": event.text})
-                except RagError as exc:
-                    # Header 200 đã gửi đi, nên lỗi giữa chừng phải báo bằng một sự kiện SSE.
-                    yield sse("error", {"message": str(exc)})
+            outcome = "error"
+            try:
+                for event in active_pipeline.ask_stream(body.question, to_turns(body.history)):
+                    if event.kind == "done" and event.answer is not None:
+                        outcome = "refused" if event.answer.refused else "ok"
+                        yield sse("done", to_answer_out(event.answer).model_dump(exclude_unset=True))
+                    else:
+                        yield sse(event.kind, {"text": event.text})
+            except RagError as exc:
+                # Header 200 đã gửi đi, nên lỗi giữa chừng phải báo bằng một sự kiện SSE.
+                yield sse("error", {"message": str(exc)})
+            finally:
+                telemetry.observe_request("chat_stream", outcome, time.perf_counter() - slot.started)
+                slot.release()
 
+        stream = generate()
+        # Client ngắt trước khi generator chạy thì `finally` không chạy: chốt thêm bằng finalizer.
+        weakref.finalize(stream, slot.release)
         return StreamingResponse(
-            generate(),
+            stream,
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )

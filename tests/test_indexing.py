@@ -109,3 +109,19 @@ def test_fingerprint_depends_on_pdf_loader_and_legal_sources(settings: Settings,
     fingerprint = indexing.compute_fingerprint(fixed)
     sources.write_text("| File | Tên văn bản |\n|---|---|\n| a.pdf | Đổi nữa |\n", encoding="utf-8")
     assert indexing.compute_fingerprint(fixed) == fingerprint
+
+
+def test_create_embeddings_passes_device_and_dtype(monkeypatch):
+    captured = {}
+
+    class Recorder:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(indexing, "HuggingFaceEmbeddings", Recorder)
+    indexing.create_embeddings(Settings())
+    assert captured["model_kwargs"] == {}  # mặc định: để sentence-transformers tự chọn thiết bị, float32
+
+    indexing.create_embeddings(Settings(embedding_device="cpu", embedding_dtype="float16"))
+    assert captured["model_kwargs"]["device"] == "cpu"
+    assert str(captured["model_kwargs"]["model_kwargs"]["torch_dtype"]) == "torch.float16"

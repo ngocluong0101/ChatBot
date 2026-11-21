@@ -16,11 +16,11 @@ class Reranker(Protocol):
 class CrossEncoderReranker:
     """Bọc sentence_transformers.CrossEncoder; điểm trả về nằm trong [0, 1] (sigmoid)."""
 
-    def __init__(self, model_name: str) -> None:
+    def __init__(self, model_name: str, device: str = "auto") -> None:
         import torch
         from sentence_transformers import CrossEncoder
 
-        use_cuda = torch.cuda.is_available()
+        use_cuda = torch.cuda.is_available() if device == "auto" else device == "cuda"
         logger.info("Nạp reranker %s (%s)", model_name, "cuda/fp16" if use_cuda else "cpu")
         self._model = CrossEncoder(
             model_name,

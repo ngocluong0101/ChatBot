@@ -90,6 +90,26 @@ class Settings(BaseSettings):
     # yêu cầu header X-API-Key khớp.
     api_key: str = ""
 
+    # Đồng thời. Số lượt hỏi được xử lý cùng lúc (semaphore). Mỗi lượt giữ một "slot" suốt vòng đời (cả
+    # streaming), nên đặt bằng OLLAMA_NUM_PARALLEL của Ollama; 1 = tuần tự như trước. Chờ quá
+    # `queue_timeout_seconds`
+    # chưa được nhận thì trả 503 kèm Retry-After thay vì để hàng đợi dài vô hạn.
+    max_concurrent_requests: int = 1
+    queue_timeout_seconds: float = 120.0
+    # Thiết bị chạy embedding bge-m3 và reranker: "auto" = GPU nếu torch thấy CUDA, hoặc ép "cpu"/"cuda".
+    # Chạy embedding trên CPU nhường ~2,2 GB VRAM cho Ollama (lúc truy vấn chỉ embed một câu ngắn).
+    # embedding_dtype float16 giảm một nửa VRAM của embedding nhưng điểm cosine lệch nhẹ so với chỉ mục dựng
+    # bằng float32 (reranker luôn fp16 trên GPU).
+    embedding_device: Literal["auto", "cpu", "cuda"] = "auto"
+    rerank_device: Literal["auto", "cpu", "cuda"] = "auto"
+    embedding_dtype: Literal["float32", "float16"] = "float32"
+
+    # Quan sát. Tracing OpenTelemetry gửi tới Jaeger (OTLP/HTTP, cổng 4318); /metrics định dạng Prometheus.
+    tracing_enabled: bool = False
+    otlp_endpoint: str = "http://localhost:4318"
+    service_name: str = "ragbot"
+    metrics_enabled: bool = True
+
     log_level: str = "INFO"
 
     @field_validator("docs_dir", "index_dir", "sources_file")
@@ -119,6 +139,8 @@ class Settings(BaseSettings):
     def _check_ranges(self) -> "Settings":
         if self.chunk_size <= 0 or self.top_k <= 0 or self.num_ctx <= 0 or self.fetch_k <= 0:
             raise ValueError("chunk_size, top_k, fetch_k và num_ctx phải > 0")
+        if self.max_concurrent_requests < 1 or self.queue_timeout_seconds <= 0:
+            raise ValueError("max_concurrent_requests phải >= 1 và queue_timeout_seconds phải > 0")
         if self.max_history_turns < 0:
             raise ValueError("max_history_turns phải >= 0")
         if not 0.0 <= self.rerank_threshold <= 1.0:

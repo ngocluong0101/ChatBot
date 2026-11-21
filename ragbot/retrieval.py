@@ -6,6 +6,7 @@
 """
 
 import logging
+import threading
 from typing import Any
 
 from langchain_core.documents import Document
@@ -13,6 +14,7 @@ from langchain_core.documents import Document
 from ragbot.config import Settings
 from ragbot.lexical import BM25Index
 from ragbot.rerank import Reranker
+from ragbot.telemetry import NOOP, Stage, Telemetry
 from ragbot.vectorstore import all_chunks
 
 logger = logging.getLogger(__name__)
@@ -37,10 +39,23 @@ def reciprocal_rank_fusion(rankings: list[list[DocKey]]) -> dict[DocKey, float]:
 
 
 class Retriever:
-    def __init__(self, settings: Settings, vectorstore: Any, reranker: Reranker | None = None) -> None:
+    """Một Retriever dùng chung cho mọi luồng của API. Embedding (HuggingFace), cross-encoder và Qdrant nhúng
+    không được thiết kế để gọi đồng thời từ nhiều thread (tokenizer Rust báo "Already borrowed", Qdrant nhúng
+    không có khóa nội bộ), nên toàn bộ phần tính toán của `search` đi qua một khóa. Phần chậm của một lượt hỏi
+    là LLM, nằm ngoài khóa này nên các lượt vẫn chạy chồng lên nhau (`Settings.max_concurrent_requests`)."""
+
+    def __init__(
+        self,
+        settings: Settings,
+        vectorstore: Any,
+        reranker: Reranker | None = None,
+        telemetry: Telemetry = NOOP,
+    ) -> None:
         self._settings = settings
         self._vectorstore = vectorstore
         self._reranker = reranker
+        self.telemetry = telemetry
+        self._lock = threading.Lock()
         self._bm25: BM25Index | None = None
         self._chunks: list[Document] = []
         if settings.retrieval_mode == "hybrid":
@@ -53,18 +68,33 @@ class Retriever:
         results = self._vectorstore.similarity_search_with_score(question, k=k, **kwargs)
         return [(d, float(sc)) for d, sc in results]
 
-    def search(self, question: str, source: str | None = None) -> list[tuple[Document, float]]:
-        """Top-k chunk; `source` giới hạn trong một văn bản (tên file PDF)."""
-        s = self._settings
+    def search(
+        self, question: str, source: str | None = None, parent: Stage | None = None
+    ) -> list[tuple[Document, float]]:
+        """Top-k chunk; `source` giới hạn trong một văn bản (tên file PDF). `parent`: span cha để tracing."""
+        t = self.telemetry
+        with t.stage("retrieve_lock_wait", parent):
+            self._lock.acquire()
+        try:
+            return self._search(question, source, parent)
+        finally:
+            self._lock.release()
+
+    def _search(
+        self, question: str, source: str | None, parent: Stage | None
+    ) -> list[tuple[Document, float]]:
+        s, t = self._settings, self.telemetry
         if self._bm25 is None:
-            candidates = self._dense(question, s.fetch_k if self._reranker else s.top_k, source)
+            with t.stage("dense", parent):
+                candidates = self._dense(question, s.fetch_k if self._reranker else s.top_k, source)
         else:
-            candidates = self._hybrid_candidates(question, source)
+            candidates = self._hybrid_candidates(question, source, parent)
 
         if self._reranker is None:
             return candidates[: s.top_k]
 
-        scores = self._reranker.score(question, [d for d, _ in candidates])
+        with t.stage("rerank", parent, **{"rerank.pairs": len(candidates)}):
+            scores = self._reranker.score(question, [d for d, _ in candidates])
         reranked = sorted(
             zip((d for d, _ in candidates), scores, strict=True), key=lambda x: x[1], reverse=True
         )
@@ -77,13 +107,17 @@ class Retriever:
         ranked = (self._chunks[i] for i, _ in self._bm25.top(question, len(self._chunks)))
         return [c for c in ranked if c.metadata.get("source") == source][: self._settings.fetch_k]
 
-    def _hybrid_candidates(self, question: str, source: str | None = None) -> list[tuple[Document, float]]:
+    def _hybrid_candidates(
+        self, question: str, source: str | None = None, parent: Stage | None = None
+    ) -> list[tuple[Document, float]]:
         assert self._bm25 is not None
-        s = self._settings
+        s, t = self._settings, self.telemetry
         pool = min(len(self._chunks), MAX_DENSE_POOL)
-        dense = self._dense(question, pool, source)
+        with t.stage("dense", parent):
+            dense = self._dense(question, pool, source)
         dense_score = {_key(d): sc for d, sc in dense}
-        lexical = self._lexical(question, source)
+        with t.stage("bm25", parent):
+            lexical = self._lexical(question, source)
 
         fused = reciprocal_rank_fusion([[_key(d) for d, _ in dense[: s.fetch_k]], [_key(d) for d in lexical]])
         docs_by_key = {_key(d): d for d, _ in dense[: s.fetch_k]} | {_key(d): d for d in lexical}

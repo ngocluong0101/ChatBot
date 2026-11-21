@@ -61,3 +61,14 @@ def test_legal_options_defaults_and_validation():
     assert Settings(chunking="legal", pdf_loader="pdfplumber").chunking == "legal"
     with pytest.raises(ValidationError):
         Settings(pdf_loader="ocr")
+
+
+def test_concurrency_and_observability_defaults_keep_old_behaviour():
+    s = Settings()
+    assert s.max_concurrent_requests == 1 and s.tracing_enabled is False and s.metrics_enabled is True
+
+
+@pytest.mark.parametrize("kwargs", [{"max_concurrent_requests": 0}, {"queue_timeout_seconds": 0}])
+def test_invalid_concurrency_settings_are_rejected(kwargs):
+    with pytest.raises(ValueError):
+        Settings(**kwargs)

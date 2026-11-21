@@ -44,6 +44,7 @@ Chatbot chỉ trả lời dựa trên tài liệu được cung cấp. Nếu tà
 | Mô hình ngôn ngữ | Ollama (mặc định `qwen2.5:7b-instruct`) |
 | Tìm kiếm | Embedding `BAAI/bge-m3`, Qdrant (hoặc FAISS), BM25 (tự cài, bỏ dấu), reranker `BAAI/bge-reranker-v2-m3` |
 | Đọc tài liệu | pdfplumber (văn bản pháp luật, nhận diện bảng), Unstructured (tài liệu thường) |
+| Quan sát | OpenTelemetry + Jaeger (tracing), Prometheus (`/metrics`) |
 | Triển khai | Docker, Docker Compose, GitHub Actions |
 | Chất lượng mã | pytest (hơn 250 bài kiểm thử, không cần tải mô hình), ruff |
 
@@ -175,6 +176,66 @@ Hai kho vector được so trực tiếp trên cùng câu hỏi và cùng các �
 So trên cùng bộ câu hỏi (`draft-001.jsonl`) và cùng các đoạn tài liệu; báo cáo: `final-store-equivalence.json`.
 <!-- equivalence:end -->
 
+## Hiệu năng khi nhiều người dùng
+
+Đo bằng [evals/perf/load_test.py](evals/perf/load_test.py): N người dùng hỏi liên tục (không nghỉ giữa các câu) qua `/chat/stream`, cùng một dãy câu hỏi cố định theo seed cho mọi cấu hình ([questions.jsonl](evals/perf/questions.jsonl): 40 câu lấy mẫu từ bản nháp, gồm câu có đáp án, không dấu, ghép nhiều văn bản và câu bị từ chối; chỉ đo thời gian, không đo độ đúng). VRAM lấy mẫu mỗi giây bằng `nvidia-smi`. **TTFT** là thời gian tới token đầu tiên. Máy đo: RTX 4060 Laptop 8 GB, 16 luồng CPU, torch CUDA 12.8, Ollama 0.40.16, `qwen2.5:7b-instruct` (`num_ctx=4096`), bộ tài liệu 8 văn bản / 1881 đoạn.
+
+<!-- perf:start -->
+| Cấu hình | Người dùng | Yêu cầu | Thông lượng (yêu cầu/s) | Độ trễ p50 (s) | p95 (s) | TTFT p50 (s) | Lỗi | VRAM đỉnh (MiB) |
+|---|---|---|---|---|---|---|---|---|
+| baseline | 1 | 20 | 0.21 | 4.4 | 10.3 | 2.0 | 0 | 7023 |
+| baseline | 5 | 20 | 0.27 | 20.4 | 25.6 | 18.9 | 0 | 6957 |
+| baseline | 10 | 30 | 0.23 | 37.2 | 59.8 | 34.8 | 0 | 6996 |
+| baseline | 20 | 60 | 0.23 | 84.7 | 106.2 | 80.1 | 0 | 7180 |
+| serial-1 | 1 | 20 | 0.50 | 2.0 | 3.9 | 1.2 | 0 | 6987 |
+| serial-1 | 5 | 20 | 0.62 | 8.1 | 10.5 | 7.6 | 0 | 6839 |
+| serial-1 | 10 | 30 | 0.55 | 16.8 | 21.7 | 15.9 | 0 | 6874 |
+| serial-1 | 20 | 60 | 0.59 | 34.7 | 38.2 | 33.5 | 0 | 7096 |
+| parallel-2 | 1 | 20 | 0.44 | 2.2 | 5.0 | 1.3 | 0 | 7027 |
+| parallel-2 | 5 | 20 | 0.56 | 7.5 | 18.3 | 5.7 | 0 | 6917 |
+| parallel-2 | 10 | 30 | 0.70 | 12.2 | 17.3 | 11.6 | 0 | 6958 |
+| parallel-2 | 20 | 60 | 0.74 | 25.2 | 28.4 | 23.3 | 0 | 7302 |
+| parallel-4 | 1 | 20 | 0.38 | 2.6 | 5.4 | 1.4 | 0 | 6789 |
+| parallel-4 | 5 | 20 | 0.67 | 5.9 | 10.9 | 2.9 | 0 | 6836 |
+| parallel-4 | 10 | 30 | 0.70 | 11.0 | 21.8 | 8.4 | 0 | 6869 |
+| parallel-4 | 20 | 60 | 0.77 | 23.6 | 31.8 | 20.8 | 0 | 7098 |
+<!-- perf:end -->
+
+Mỗi dòng là **một lần chạy** (chưa lặp lại nhiều lần nên chưa biết độ dao động; chênh lệch nhỏ giữa các dòng, ví dụ `parallel-2` và `parallel-4`, không nên coi là có ý nghĩa). Báo cáo: `evals/reports/final-perf-*.json`.
+
+- `baseline`: mã trước khi sửa (một khóa toàn cục), `OLLAMA_NUM_PARALLEL=1`, embedding và reranker đều chạy GPU.
+- `serial-1`: mã mới, 1 slot, embedding chuyển sang CPU (`RAG_EMBEDDING_DEVICE=cpu`).
+- `parallel-2`, `parallel-4`: mã mới, `RAG_MAX_CONCURRENT_REQUESTS` và `OLLAMA_NUM_PARALLEL` cùng bằng 2 hoặc 4.
+
+### Điều đo được
+
+1. **Nút thắt đầu tiên là VRAM, không phải khóa.** Ngay sau khi khởi động (embedding fp32 và reranker đã nạp, Ollama chưa nạp mô hình), `nvidia-smi` báo khoảng 3,9 GB VRAM đã bị chiếm; Ollama chỉ đặt được khoảng một nửa mô hình lên GPU (quan sát thủ công bằng `ollama ps`: `50%/50% CPU/GPU`) và phần còn lại chạy bằng CPU, chậm hơn nhiều. Mức dùng GPU trung bình của `baseline` chỉ 27–38%. Bảng ngay dưới danh sách này so ba cách giải quyết với một người dùng: embedding fp16 chỉ nhường thêm một phần (Ollama vẫn bị đẩy 24% sang CPU); chạy cả hai mô hình tìm kiếm trên CPU làm Ollama chạy 100% GPU nhưng reranker CPU quá chậm; **chỉ embedding trên CPU** (mỗi lượt chỉ embed một câu ngắn) cho kết quả tốt nhất và Ollama chạy 100% GPU. Đây là cấu hình của các dòng `serial-1`, `parallel-*` (đặt `RAG_EMBEDDING_DEVICE=cpu`; mặc định vẫn là `auto`). Chưa kiểm tra chênh lệch điểm cosine giữa embedding CPU và GPU (về nguyên tắc chỉ là sai số số học).
+2. **Vẫn tuần tự nhưng thông lượng tăng khoảng 2,3–2,6 lần** (0,21 → 0,50 yêu cầu/s với 1 người dùng, 0,23 → 0,59 với 20) chỉ nhờ sửa VRAM: ở 20 người dùng, độ trễ p50 84,7 → 34,7 giây và p95 106,2 → 38,2 giây (so `baseline` với `serial-1`; hai bên khác nhau cả ở mã lẫn thiết bị embedding nên không tách riêng được phần đóng góp của từng thay đổi).
+3. **Cho phép chạy đồng thời mang lại ít hơn kỳ vọng.** Ở 20 người dùng, thông lượng 0,59 (1 slot) → 0,74 (2 slot) → 0,77 (4 slot) yêu cầu/s, tức khoảng +25% và +31%; độ trễ p50 34,7 → 25,2 → 23,6 giây. Một GPU 8 GB chạy mô hình 7B đã gần kín tính toán (mức dùng GPU trung bình 83–88% khi tuần tự), nên chạy chồng chủ yếu lấp các khoảng nghỉ (embedding, rerank, tạo prompt) chứ không nhân đôi tốc độ sinh chữ.
+4. **Nhiều slot hơn không miễn phí:** với 4 slot, KV cache lớn hơn đẩy khoảng 18% mô hình sang CPU (`ollama ps`), và độ trễ p50 của **một** người dùng tăng từ 2,0 lên 2,6 giây. Với 2 slot, 9% mô hình sang CPU. **Khuyến nghị cho máy 8 GB: 2 slot** (`RAG_MAX_CONCURRENT_REQUESTS=2` và `OLLAMA_NUM_PARALLEL=2`). Mặc định giữ 1 để hành vi không đổi.
+5. Không có yêu cầu nào lỗi trong mọi lần đo, và thời gian chờ tối đa (`RAG_QUEUE_TIMEOUT_SECONDS=120` giây) chưa bao giờ bị chạm tới ở 20 người dùng. **Cơ chế từ chối khi quá tải (trả 503 kèm `Retry-After`) mới được kiểm chứng bằng kiểm thử tự động, chưa được đo dưới tải thật.**
+
+Ba cấu hình thiết bị đã thử với **một** người dùng (20 yêu cầu mỗi cấu hình, mã mới, 1 slot):
+
+<!-- perfprobe:start -->
+| Cấu hình | Người dùng | Yêu cầu | Thông lượng (yêu cầu/s) | Độ trễ p50 (s) | p95 (s) | TTFT p50 (s) | Lỗi | VRAM đỉnh (MiB) |
+|---|---|---|---|---|---|---|---|---|
+| embedding GPU fp16, reranker GPU | 1 | 20 | 0.32 | 2.8 | 7.7 | 1.4 | 0 | 6984 |
+| embedding CPU, reranker CPU | 1 | 20 | 0.10 | 9.7 | 12.6 | 9.5 | 0 | 5399 |
+| embedding CPU, reranker GPU | 1 | 20 | 0.50 | 2.0 | 3.9 | 1.2 | 0 | 6789 |
+<!-- perfprobe:end -->
+
+### Cách hoạt động của phần đồng thời
+
+- Mỗi lượt hỏi giành một slot của semaphore (`RAG_MAX_CONCURRENT_REQUESTS`) và giữ nó suốt vòng đời, kể cả khi truyền hiện dần. Hết chờ thì trả `503` + `Retry-After` thay vì để hàng đợi dài vô hạn. Slot được giành *trước* khi bắt đầu truyền để còn trả được mã lỗi.
+- Embedding, reranker và Qdrant nhúng không thiết kế để gọi đồng thời từ nhiều thread, nên phần truy hồi (một lượt vài trăm mili-giây) vẫn đi qua một khóa riêng trong `Retriever`; LLM, phần chậm nhất, chạy chồng lên nhau. Khóa này là phần tuần tự còn lại.
+- Chưa gom (batch) nhiều câu truy vấn vào một lần chạy model, và chưa thử vLLM (cần thêm thời gian cài đặt và cấu hình; để dành cho hướng phát triển).
+
+### Theo dõi: tracing và metrics
+
+- **`GET /metrics`** (định dạng Prometheus, tắt bằng `RAG_METRICS_ENABLED=false`): thời gian từng bước (`ragbot_stage_seconds{stage=...}`: rewrite, retrieve, dense, bm25, rerank, llm, thời gian chờ khóa), số yêu cầu theo kết quả (`ok`, `refused`, `error`, `busy`), độ trễ từng yêu cầu, thời gian chờ slot, số yêu cầu đang xử lý/đang chờ, số token LLM. Endpoint này không cần khóa API và không chứa nội dung câu hỏi; đừng mở ra Internet.
+- **Tracing OpenTelemetry → Jaeger** (tắt mặc định): `docker compose --profile tracing up -d` và đặt `RAG_TRACING_ENABLED=true`, rồi mở http://localhost:16686. Mỗi lượt hỏi là một cây span `ask → rewrite / retrieve (retrieve_lock_wait, dense, bm25, rerank) / llm`, span `llm` kèm số token, tốc độ sinh (token/giây) và TTFT. **Span ghi cả nội dung câu hỏi** (thuộc tính `rag.question`); chỉ bật khi Jaeger nằm trong hệ thống của bạn.
+
 ## Bắt đầu nhanh
 
 ### Cách 1: Docker
@@ -245,6 +306,7 @@ Lần đầu dựng chỉ mục cho vài trăm trang mất vài phút (trên CPU
 | `POST /chat` | Trả lời đầy đủ: `{text, refused, question, sources[]}` |
 | `POST /chat/stream` | Trả lời hiện dần (Server-Sent Events): `rewrite`, `token`, `done`, `error` |
 | `GET /health` | Kiểm tra trạng thái, mô hình đang dùng, số đoạn tài liệu |
+| `GET /metrics` | Số liệu Prometheus (xem [Hiệu năng](#hiệu-năng-khi-nhiều-người-dùng)) |
 
 ```bash
 curl -X POST localhost:8000/chat -H 'content-type: application/json' -d '{
@@ -260,7 +322,7 @@ curl -X POST localhost:8000/chat -H 'content-type: application/json' -d '{
 - Phía người dùng giữ lịch sử và gửi lại mỗi lần; máy chủ không lưu phiên.
 - Giới hạn: câu hỏi tối đa 1000 ký tự, lịch sử tối đa 40 tin nhắn.
 - Đặt biến `RAG_API_KEY` để yêu cầu header `X-API-Key` cho `/chat` và `/chat/stream`.
-- Các lượt hỏi được xử lý lần lượt (xếp hàng), phù hợp một nhóm nhỏ dùng nội bộ.
+- Số lượt hỏi xử lý đồng thời do `RAG_MAX_CONCURRENT_REQUESTS` quyết định (mặc định 1 = lần lượt); quá tải thì trả `503` kèm `Retry-After`. Số đo ở mục [Hiệu năng](#hiệu-năng-khi-nhiều-người-dùng).
 
 ## Cấu hình
 
@@ -272,7 +334,7 @@ RAG_RERANK_MODEL=             # tắt mô hình chấm lại để tiết kiệm
 RAG_API_KEY=mat-khau-cua-ban  # bật khóa API
 ```
 
-Các tham số về dữ liệu: `RAG_DOCS_DIR` (thư mục PDF; tên cũ `RAG_PAPERS_DIR` vẫn dùng được), `RAG_PDF_LOADER` (`unstructured` hoặc `pdfplumber`), `RAG_CHUNKING` (`fixed`, `section` hoặc `legal`), `RAG_SOURCES_FILE`, `RAG_VECTOR_STORE` (`qdrant` hoặc `faiss`), `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION`. Danh sách đầy đủ có trong [.env.example](.env.example) và [ragbot/config.py](ragbot/config.py).
+Các tham số về dữ liệu: `RAG_DOCS_DIR` (thư mục PDF; tên cũ `RAG_PAPERS_DIR` vẫn dùng được), `RAG_PDF_LOADER` (`unstructured` hoặc `pdfplumber`), `RAG_CHUNKING` (`fixed`, `section` hoặc `legal`), `RAG_SOURCES_FILE`, `RAG_VECTOR_STORE` (`qdrant` hoặc `faiss`), `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION`. Về hiệu năng và quan sát: `RAG_MAX_CONCURRENT_REQUESTS`, `RAG_QUEUE_TIMEOUT_SECONDS`, `RAG_EMBEDDING_DEVICE` / `RAG_RERANK_DEVICE` (`auto`, `cpu`, `cuda`), `RAG_EMBEDDING_DTYPE`, `RAG_TRACING_ENABLED`, `RAG_OTLP_ENDPOINT`, `RAG_METRICS_ENABLED`. Danh sách đầy đủ có trong [.env.example](.env.example) và [ragbot/config.py](ragbot/config.py).
 
 ## Chạy lại đánh giá
 
@@ -328,10 +390,12 @@ Chỉ các báo cáo có tên `final-*` mới được đưa vào git; báo cáo
 │   ├── pipeline.py         # luồng hỏi đáp: viết lại câu hỏi, gọi mô hình, nguồn trích dẫn
 │   ├── evaluate.py         # đánh giá (retrieval, từ chối, trả lời, khoảng tin cậy)
 │   ├── stats.py            # thống kê bộ tài liệu sau khi chia
-│   ├── api.py              # REST API (FastAPI)
+│   ├── telemetry.py        # tracing (OpenTelemetry) và metrics (Prometheus)
+│   ├── api.py              # REST API (FastAPI): semaphore, 503 khi quá tải, /metrics
 │   ├── static/index.html   # giao diện web
 │   └── cli.py              # giao diện dòng lệnh
 ├── evals/                  # soạn/duyệt câu hỏi, chạy ablation, tổng hợp kết quả
+│   └── perf/               # load test nhiều người dùng, bộ câu hỏi, bảng hiệu năng
 ├── data/                   # SOURCES.md và thư mục corpus/ (PDF không đưa vào repo)
 ├── docs/                   # hướng dẫn quay demo
 ├── papers/                 # tài liệu PDF mẫu nhỏ
@@ -361,12 +425,13 @@ Các bài kiểm thử không cần tải mô hình và không cần Ollama.
 - Qdrant nhúng chỉ cho một tiến trình mở cùng lúc (không chạy được hai tiến trình cùng thư mục chỉ mục); cần nhiều tiến trình thì dùng Qdrant dạng máy chủ (Docker Compose).
 - Chế độ `faiss` vẫn dùng `pickle` và dựng lại toàn bộ khi đổi một file; chỉ nên dùng thư mục chỉ mục do chính ứng dụng tạo ra.
 - Cập nhật từng phần theo từng file: sửa một dòng trong file lớn vẫn xử lý lại cả file đó.
-- Các lượt hỏi được xử lý lần lượt, chưa đo khi nhiều người hỏi cùng lúc.
+- Một GPU 8 GB chạy mô hình 7B chỉ tăng thông lượng khoảng 25–31% khi cho chạy đồng thời (xem mục Hiệu năng); muốn phục vụ nhiều người hơn cần GPU lớn hơn, mô hình nhỏ hơn hoặc một máy chủ suy luận chuyên dụng (vLLM, chưa thử). Phần truy hồi vẫn tuần tự qua một khóa.
+- Mọi số hiệu năng là một lần chạy, chưa lặp lại để đo độ dao động.
 - Khởi động mất vài chục giây vì phải nạp ba mô hình.
 - Chưa có đăng nhập theo từng người dùng; chỉ có một khóa API dùng chung.
 
 ## Hướng phát triển
 
-- Đo và cải thiện hiệu năng khi nhiều người dùng cùng lúc; thêm theo dõi chi tiết từng bước xử lý.
+- Thử vLLM / mô hình lượng tử hóa, gom nhiều truy vấn vào một lần chạy embedding/rerank, và lặp lại các lần đo để có khoảng dao động.
 - Lọc theo hiệu lực của văn bản và dùng đồng thời câu hỏi gốc với câu đã viết lại khi tìm kiếm.
 - Lưu phiên hội thoại phía máy chủ và xác thực theo người dùng.

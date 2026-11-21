@@ -1,0 +1,201 @@
+{
+  "levels": [
+    {
+      "users": 1,
+      "requests": 20,
+      "ok": 20,
+      "errors": {},
+      "error_rate": 0.0,
+      "wall_seconds": 45.19,
+      "throughput_rps": 0.443,
+      "latency_seconds": {
+        "n": 20,
+        "mean": 2.258,
+        "p50": 2.244,
+        "p95": 4.986,
+        "p99": 5.489,
+        "max": 5.615
+      },
+      "ttft_seconds": {
+        "n": 20,
+        "mean": 1.125,
+        "p50": 1.272,
+        "p95": 1.974,
+        "p99": 1.981,
+        "max": 1.983
+      },
+      "latency_seconds_answered": {
+        "n": 16,
+        "mean": 2.712,
+        "p50": 2.502,
+        "p95": 5.118,
+        "p99": 5.516,
+        "max": 5.615
+      },
+      "refused": 4,
+      "stream_events_per_second_per_user": 42.0,
+      "gpu": {
+        "vram_peak_mib": 7027,
+        "vram_mean_mib": 6917,
+        "vram_total_mib": 8188,
+        "gpu_util_mean_pct": 78.8,
+        "gpu_util_peak_pct": 100,
+        "samples": 44
+      },
+      "requests_per_user": 20
+    },
+    {
+      "users": 5,
+      "requests": 20,
+      "ok": 20,
+      "errors": {},
+      "error_rate": 0.0,
+      "wall_seconds": 35.92,
+      "throughput_rps": 0.557,
+      "latency_seconds": {
+        "n": 20,
+        "mean": 8.442,
+        "p50": 7.541,
+        "p95": 18.318,
+        "p99": 18.688,
+        "max": 18.78
+      },
+      "ttft_seconds": {
+        "n": 20,
+        "mean": 6.757,
+        "p50": 5.665,
+        "p95": 16.09,
+        "p99": 17.177,
+        "max": 17.449
+      },
+      "latency_seconds_answered": {
+        "n": 13,
+        "mean": 10.492,
+        "p50": 8.945,
+        "p95": 18.488,
+        "p99": 18.722,
+        "max": 18.78
+      },
+      "refused": 7,
+      "stream_events_per_second_per_user": 29.3,
+      "gpu": {
+        "vram_peak_mib": 6917,
+        "vram_mean_mib": 6906,
+        "vram_total_mib": 8188,
+        "gpu_util_mean_pct": 62.3,
+        "gpu_util_peak_pct": 100,
+        "samples": 35
+      },
+      "requests_per_user": 4
+    },
+    {
+      "users": 10,
+      "requests": 30,
+      "ok": 30,
+      "errors": {},
+      "error_rate": 0.0,
+      "wall_seconds": 42.69,
+      "throughput_rps": 0.703,
+      "latency_seconds": {
+        "n": 30,
+        "mean": 12.243,
+        "p50": 12.186,
+        "p95": 17.257,
+        "p99": 22.172,
+        "max": 23.891
+      },
+      "ttft_seconds": {
+        "n": 30,
+        "mean": 10.762,
+        "p50": 11.617,
+        "p95": 15.453,
+        "p99": 16.037,
+        "max": 16.08
+      },
+      "latency_seconds_answered": {
+        "n": 21,
+        "mean": 13.624,
+        "p50": 13.928,
+        "p95": 17.963,
+        "p99": 22.705,
+        "max": 23.891
+      },
+      "refused": 9,
+      "stream_events_per_second_per_user": 31.6,
+      "gpu": {
+        "vram_peak_mib": 6958,
+        "vram_mean_mib": 6943,
+        "vram_total_mib": 8188,
+        "gpu_util_mean_pct": 75.8,
+        "gpu_util_peak_pct": 100,
+        "samples": 42
+      },
+      "requests_per_user": 3
+    },
+    {
+      "users": 20,
+      "requests": 60,
+      "ok": 60,
+      "errors": {},
+      "error_rate": 0.0,
+      "wall_seconds": 80.96,
+      "throughput_rps": 0.741,
+      "latency_seconds": {
+        "n": 60,
+        "mean": 22.338,
+        "p50": 25.167,
+        "p95": 28.428,
+        "p99": 30.509,
+        "max": 32.093
+      },
+      "ttft_seconds": {
+        "n": 60,
+        "mean": 20.669,
+        "p50": 23.328,
+        "p95": 26.501,
+        "p99": 27.082,
+        "max": 27.511
+      },
+      "latency_seconds_answered": {
+        "n": 46,
+        "mean": 23.332,
+        "p50": 26.15,
+        "p95": 28.775,
+        "p99": 30.885,
+        "max": 32.093
+      },
+      "refused": 14,
+      "stream_events_per_second_per_user": 33.7,
+      "gpu": {
+        "vram_peak_mib": 7302,
+        "vram_mean_mib": 7164,
+        "vram_total_mib": 8188,
+        "gpu_util_mean_pct": 78.7,
+        "gpu_util_peak_pct": 100,
+        "samples": 79
+      },
+      "requests_per_user": 3
+    }
+  ],
+  "gpu_idle_before_mib": 1746.0,
+  "questions": {
+    "n": 40,
+    "seed": 7,
+    "min_per_user": 3,
+    "min_total": 20
+  },
+  "meta": {
+    "label": "parallel-2",
+    "note": "code mới, embedding bge-m3 fp32 trên CPU, reranker fp16 trên GPU, qwen2.5:7b-instruct num_ctx=4096; OLLAMA_NUM_PARALLEL=2, RAG_MAX_CONCURRENT_REQUESTS=2",
+    "created_at": "2026-11-21T06:02:45+00:00",
+    "url": "http://127.0.0.1:8000",
+    "server": {
+      "status": "ok",
+      "llm_model": "qwen2.5:7b-instruct",
+      "rerank_model": "BAAI/bge-reranker-v2-m3",
+      "chunks": 1881,
+      "auth_required": false
+    },
+    "machine": "x86_64"
+  }
+}

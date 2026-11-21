@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
@@ -42,8 +43,16 @@ DISTANCE_STRATEGY = DistanceStrategy.MAX_INNER_PRODUCT
 
 
 def create_embeddings(settings: Settings) -> Embeddings:
+    model_kwargs: dict[str, Any] = {}
+    if settings.embedding_device != "auto":
+        model_kwargs["device"] = settings.embedding_device
+    if settings.embedding_dtype == "float16":
+        import torch
+
+        model_kwargs["model_kwargs"] = {"torch_dtype": torch.float16}
     return HuggingFaceEmbeddings(
         model_name=settings.embedding_model,
+        model_kwargs=model_kwargs,
         encode_kwargs={"normalize_embeddings": True},
     )
 

@@ -18,6 +18,7 @@ from ragbot.errors import LLMUnavailableError
 from ragbot.indexing import load_or_build_index
 from ragbot.rerank import CrossEncoderReranker
 from ragbot.retrieval import Retriever
+from ragbot.telemetry import NOOP, Stage, Telemetry, UsageRecorder, make_usage_handler
 from ragbot.vectorstore import all_chunks
 
 logger = logging.getLogger(__name__)
@@ -239,6 +240,20 @@ class RagPipeline:
         self._retriever = retriever or Retriever(settings, vectorstore)
         self._rewrite_chain = rewrite_chain
         self._chunk_cache: list[Document] | None = None
+        self.usage: UsageRecorder | None = None  # đọc số token của lượt sinh vừa xong (xem telemetry.py)
+        self._telemetry: Telemetry = NOOP
+        self.telemetry = NOOP
+
+    @property
+    def telemetry(self) -> Telemetry:
+        return self._telemetry
+
+    @telemetry.setter
+    def telemetry(self, value: Telemetry) -> None:
+        """Gắn telemetry cho cả pipeline lẫn retriever (retriever dùng nó để tạo span con)."""
+        self._telemetry = value
+        if hasattr(self._retriever, "telemetry"):
+            self._retriever.telemetry = value
 
     def chunks(self) -> list[Document]:
         """Mọi chunk đang nằm trong index (dùng cho đánh giá/kiểm tra). Chỉ mục không đổi khi đang chạy nên
@@ -247,18 +262,24 @@ class RagPipeline:
             self._chunk_cache = all_chunks(self._vectorstore)
         return list(self._chunk_cache)
 
-    def search(self, question: str) -> list[tuple[Document, float]]:
+    def search(self, question: str, parent: Stage | None = None) -> list[tuple[Document, float]]:
         """Top-k chunk thô (chưa áp ngưỡng) kèm điểm; ý nghĩa điểm xem ragbot/retrieval.py."""
-        return self._retriever.search(question)
+        if parent is None:
+            return self._retriever.search(question)
+        return self._retriever.search(question, parent=parent)
 
-    def retrieve(self, question: str) -> list[tuple[Document, float]]:
+    def retrieve(self, question: str, parent: Stage | None = None) -> list[tuple[Document, float]]:
         """Top-k chunk rồi loại các chunk có điểm dưới ngưỡng đang áp dụng."""
-        results = self.search(question)
+        with self.telemetry.stage("retrieve", parent) as stage:
+            results = self.search(question, stage)
+            stage.set("retrieve.candidates", len(results))
         hits = [(doc, score) for doc, score in results if score >= self._settings.active_threshold]
         logger.debug("Retrieval: %d/%d chunk đạt ngưỡng", len(hits), len(results))
         return hits
 
-    def standalone_question(self, question: str, history: Sequence[Turn] = ()) -> str:
+    def standalone_question(
+        self, question: str, history: Sequence[Turn] = (), parent: Stage | None = None
+    ) -> str:
         """Viết lại câu hỏi nối tiếp / không dấu thành câu độc lập, có dấu (1 lượt gọi LLM nếu cần)."""
         if self._rewrite_chain is None or not self._settings.rewrite_queries:
             return question
@@ -268,16 +289,27 @@ class RagPipeline:
         if not recent and not looks_unaccented(question):
             return question
         try:
-            raw = self._rewrite_chain.invoke({"history": format_history(recent), "question": question})
+            with self.telemetry.stage("rewrite", parent):
+                raw = self._rewrite_chain.invoke({"history": format_history(recent), "question": question})
         except _LLM_ERRORS as exc:
             raise LLMUnavailableError(f"Lỗi khi gọi Ollama: {exc}") from exc
         rewritten = clean_rewrite(raw, question)
         logger.debug("Viết lại câu hỏi: %r -> %r", question, rewritten)
         return rewritten
 
-    def _prepare(self, question: str, history: Sequence[Turn]) -> tuple[str, list[tuple[Document, float]]]:
-        standalone = self.standalone_question(question, history)
-        return standalone, self.retrieve(standalone)
+    def _prepare(
+        self, question: str, history: Sequence[Turn], parent: Stage | None = None
+    ) -> tuple[str, list[tuple[Document, float]]]:
+        standalone = self.standalone_question(question, history, parent)
+        return standalone, self.retrieve(standalone, parent)
+
+    def _finish_llm(self, stage: Stage) -> None:
+        """Ghi số token (nếu Ollama báo) vào span và bộ đếm /metrics."""
+        usage = self.usage.pop() if self.usage else None
+        if usage:
+            for key, value in usage.items():
+                stage.set(f"llm.{key}", value)
+            self.telemetry.observe_tokens(usage)
 
     def _build_answer(self, standalone: str, hits: list[tuple[Document, float]], raw: str) -> Answer:
         text = raw.strip()
@@ -291,39 +323,57 @@ class RagPipeline:
         )
 
     def ask(self, question: str, history: Sequence[Turn] = ()) -> Answer:
-        standalone, hits = self._prepare(question, history)
-        if not hits:
-            # Không gọi LLM khi retrieval không đủ liên quan: nhanh hơn và không thể bịa.
-            return Answer(NOT_FOUND_MESSAGE, refused=True, question=standalone)
-        inputs = {"context": format_context([doc for doc, _ in hits]), "question": standalone}
-        try:
-            raw = self._chain.invoke(inputs)
-        except _LLM_ERRORS as exc:
-            raise LLMUnavailableError(f"Lỗi khi gọi Ollama: {exc}") from exc
-        return self._build_answer(standalone, hits, raw)
+        with self.telemetry.stage("ask", **{"rag.question": question}) as root:
+            standalone, hits = self._prepare(question, history, root)
+            root.set("rag.standalone_question", standalone)
+            if not hits:
+                # Không gọi LLM khi retrieval không đủ liên quan: nhanh hơn và không thể bịa.
+                root.set("rag.refused", True)
+                return Answer(NOT_FOUND_MESSAGE, refused=True, question=standalone)
+            inputs = {"context": format_context([doc for doc, _ in hits]), "question": standalone}
+            try:
+                with self.telemetry.stage("llm", root, **{"llm.model": self._settings.llm_model}) as llm:
+                    raw = self._chain.invoke(inputs)
+                    self._finish_llm(llm)
+            except _LLM_ERRORS as exc:
+                raise LLMUnavailableError(f"Lỗi khi gọi Ollama: {exc}") from exc
+            answer = self._build_answer(standalone, hits, raw)
+            root.set("rag.refused", answer.refused)
+            return answer
 
     def ask_stream(self, question: str, history: Sequence[Turn] = ()) -> Iterator[StreamEvent]:
         """Như `ask` nhưng phát từng đoạn. Sự kiện "done" mang Answer cuối cùng (có nguồn, đã chuẩn hóa
         lời từ chối): client nên dùng nó thay cho phần text đã ghép từ các sự kiện "token"."""
-        standalone, hits = self._prepare(question, history)
-        if standalone != question:
-            yield StreamEvent("rewrite", text=standalone)
-        if not hits:
-            yield StreamEvent("done", answer=Answer(NOT_FOUND_MESSAGE, refused=True, question=standalone))
-            return
-        inputs = {"context": format_context([doc for doc, _ in hits]), "question": standalone}
-        parts: list[str] = []
-        try:
-            for chunk in self._chain.stream(inputs):
-                parts.append(chunk)
-                yield StreamEvent("token", text=chunk)
-        except _LLM_ERRORS as exc:
-            raise LLMUnavailableError(f"Lỗi khi gọi Ollama: {exc}") from exc
-        yield StreamEvent("done", answer=self._build_answer(standalone, hits, "".join(parts)))
+        with self.telemetry.stage("ask", **{"rag.question": question, "rag.stream": True}) as root:
+            standalone, hits = self._prepare(question, history, root)
+            root.set("rag.standalone_question", standalone)
+            if standalone != question:
+                yield StreamEvent("rewrite", text=standalone)
+            if not hits:
+                root.set("rag.refused", True)
+                yield StreamEvent("done", answer=Answer(NOT_FOUND_MESSAGE, refused=True, question=standalone))
+                return
+            inputs = {"context": format_context([doc for doc, _ in hits]), "question": standalone}
+            parts: list[str] = []
+            try:
+                with self.telemetry.stage("llm", root, **{"llm.model": self._settings.llm_model}) as llm:
+                    for chunk in self._chain.stream(inputs):
+                        if not parts:
+                            llm.set("llm.ttft_seconds", round(llm.elapsed(), 4))
+                        parts.append(chunk)
+                        yield StreamEvent("token", text=chunk)
+                    self._finish_llm(llm)
+            except _LLM_ERRORS as exc:
+                raise LLMUnavailableError(f"Lỗi khi gọi Ollama: {exc}") from exc
+            answer = self._build_answer(standalone, hits, "".join(parts))
+            root.set("rag.refused", answer.refused)
+            yield StreamEvent("done", answer=answer)
 
 
 def build_retriever(settings: Settings, vectorstore: Any) -> Retriever:
-    reranker = CrossEncoderReranker(settings.rerank_model) if settings.rerank_model else None
+    reranker = (
+        CrossEncoderReranker(settings.rerank_model, settings.rerank_device) if settings.rerank_model else None
+    )
     return Retriever(settings, vectorstore, reranker)
 
 
@@ -343,17 +393,21 @@ def build_pipeline(settings: Settings | None = None) -> RagPipeline:
     settings = settings or get_settings()
     check_ollama(settings)
     vectorstore = load_or_build_index(settings)
+    usage = UsageRecorder()
     llm = ChatOllama(
         model=settings.llm_model,
         temperature=settings.temperature,
         num_ctx=settings.num_ctx,
         base_url=settings.ollama_base_url,
+        callbacks=[make_usage_handler(usage)],
     )
     chain = ChatPromptTemplate.from_template(PROMPT_TEMPLATE) | llm | StrOutputParser()
-    return RagPipeline(
+    pipeline = RagPipeline(
         settings,
         vectorstore,
         chain,
         build_retriever(settings, vectorstore),
         rewrite_chain=build_rewrite_chain(settings),
     )
+    pipeline.usage = usage
+    return pipeline

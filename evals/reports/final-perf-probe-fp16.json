@@ -1,0 +1,69 @@
+{
+  "levels": [
+    {
+      "users": 1,
+      "requests": 20,
+      "ok": 20,
+      "errors": {},
+      "error_rate": 0.0,
+      "wall_seconds": 62.1,
+      "throughput_rps": 0.322,
+      "latency_seconds": {
+        "n": 20,
+        "mean": 3.104,
+        "p50": 2.828,
+        "p95": 7.669,
+        "p99": 8.614,
+        "max": 8.85
+      },
+      "ttft_seconds": {
+        "n": 20,
+        "mean": 1.238,
+        "p50": 1.411,
+        "p95": 2.486,
+        "p99": 2.628,
+        "max": 2.663
+      },
+      "latency_seconds_answered": {
+        "n": 16,
+        "mean": 3.793,
+        "p50": 3.004,
+        "p95": 7.918,
+        "p99": 8.664,
+        "max": 8.85
+      },
+      "refused": 4,
+      "stream_events_per_second_per_user": 25.6,
+      "gpu": {
+        "vram_peak_mib": 6984,
+        "vram_mean_mib": 6928,
+        "vram_total_mib": 8188,
+        "gpu_util_mean_pct": 56.5,
+        "gpu_util_peak_pct": 100,
+        "samples": 61
+      },
+      "requests_per_user": 20
+    }
+  ],
+  "gpu_idle_before_mib": 2742.0,
+  "questions": {
+    "n": 40,
+    "seed": 7,
+    "min_per_user": 3,
+    "min_total": 20
+  },
+  "meta": {
+    "label": "probe-fp16",
+    "note": "probe",
+    "created_at": "2026-11-21T05:48:12+00:00",
+    "url": "http://127.0.0.1:8000",
+    "server": {
+      "status": "ok",
+      "llm_model": "qwen2.5:7b-instruct",
+      "rerank_model": "BAAI/bge-reranker-v2-m3",
+      "chunks": 1881,
+      "auth_required": false
+    },
+    "machine": "x86_64"
+  }
+}

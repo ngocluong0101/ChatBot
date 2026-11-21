@@ -35,6 +35,16 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Tracing (tùy chọn, không chạy mặc định): `docker compose --profile tracing up -d`, đặt RAG_TRACING_ENABLED=true
+  # cho app, rồi mở http://localhost:16686. Lưu trong bộ nhớ nên khởi động lại là mất trace. Cổng giao diện chỉ
+  # bind 127.0.0.1; cổng OTLP (4318) chỉ truy cập được từ service `app` trong mạng Compose.
+  jaeger:
+    image: jaegertracing/jaeger:2.15.0
+    profiles: ["tracing"]
+    ports:
+      - "127.0.0.1:16686:16686"
+    restart: unless-stopped
+
   app:
     build: .
     depends_on:
@@ -48,6 +58,11 @@ services:
       RAG_QDRANT_URL: http://qdrant:6333
       # Đặt RAG_API_KEY (trong shell hoặc file .env cạnh compose) để yêu cầu header X-API-Key.
       RAG_API_KEY: ${RAG_API_KEY:-}
+      # Quan sát: /metrics luôn bật; tracing chỉ gửi đi khi bật và có service jaeger (profile `tracing`).
+      RAG_TRACING_ENABLED: ${RAG_TRACING_ENABLED:-false}
+      RAG_OTLP_ENDPOINT: http://jaeger:4318
+      # Số lượt hỏi xử lý đồng thời; đặt bằng OLLAMA_NUM_PARALLEL của service ollama (xem README, mục hiệu năng).
+      RAG_MAX_CONCURRENT_REQUESTS: ${RAG_MAX_CONCURRENT_REQUESTS:-1}
       # Tải model HuggingFace bằng HTTP thường; giao thức Xet có thể bị treo trên một số mạng.
       HF_HUB_DISABLE_XET: "1"
     ports:
