@@ -26,6 +26,20 @@ Chatbot: Tôi không tìm thấy thông tin này trong tài liệu.
 
 Chatbot chỉ trả lời dựa trên tài liệu được cung cấp. Nếu tài liệu không có thông tin, nó nói thẳng là không tìm thấy thay vì đoán. Đây là kết quả chạy thật; mô hình ngôn ngữ nhỏ vẫn có thể sai, vì vậy hãy luôn kiểm tra điều khoản được trích dẫn (xem [Hạn chế](#hạn-chế-hiện-tại)).
 
+## Tóm tắt kết quả
+
+Mọi số lấy từ file báo cáo trong [evals/reports/](evals/reports/); "chưa đo" nghĩa là chưa có báo cáo, không phải kết quả tốt hay xấu.
+
+| Hạng mục | Kết quả | Báo cáo |
+|---|---|---|
+| Bộ tài liệu | 8 văn bản pháp luật, 423 trang, 1881 đoạn chia theo Điều/Khoản | `final-corpus-stats.json` |
+| Cập nhật chỉ mục khi đổi **một** file | Qdrant 36,9 giây (file nhỏ) và 149,7 giây (file lớn); FAISS phải dựng lại toàn bộ trong 804,5 giây. Dựng lần đầu Qdrant **chậm hơn** 15% (924,0 so với 804,5 giây) | `final-index-timing.json` |
+| Qdrant thay FAISS có đổi kết quả truy hồi không | Không: 215/215 câu cho cùng thứ hạng top-5 (dense và hybrid), chênh điểm lớn nhất 4×10⁻⁷ | `final-store-equivalence.json` |
+| 20 người dùng đồng thời (RTX 4060 8 GB) | Thông lượng 0,23 → 0,59 yêu cầu/s sau khi sửa nút thắt VRAM, 0,74 với 2 slot; độ trễ p50 84,7 → 34,7 → 25,2 giây | `final-perf-*.json` |
+| Độ chính xác câu trả lời, ablation từng cải tiến | **Chưa đo** (bộ câu hỏi nháp chưa được duyệt tay) | — |
+
+Chi tiết và cách đọc từng số ở các mục bên dưới.
+
 ## Tính năng
 
 - **Trích dẫn đến từng Điều/Khoản:** nguồn được tạo từ siêu dữ liệu của đoạn văn bản được truy hồi, không để mô hình tự ghi (mô hình nhỏ dễ ghi sai nguồn).
@@ -46,7 +60,7 @@ Chatbot chỉ trả lời dựa trên tài liệu được cung cấp. Nếu tà
 | Đọc tài liệu | pdfplumber (văn bản pháp luật, nhận diện bảng), Unstructured (tài liệu thường) |
 | Quan sát | OpenTelemetry + Jaeger (tracing), Prometheus (`/metrics`) |
 | Triển khai | Docker, Docker Compose, GitHub Actions |
-| Chất lượng mã | pytest (hơn 250 bài kiểm thử, không cần tải mô hình), ruff |
+| Chất lượng mã | pytest (hơn 300 bài kiểm thử, không cần tải mô hình), ruff |
 
 ## Cách hoạt động
 
@@ -371,6 +385,19 @@ python -m ragbot.evaluate --dataset evals/dataset_legal.jsonl --split test --mod
 
 Chỉ các báo cáo có tên `final-*` mới được đưa vào git; báo cáo chạy thử (`draft-*`, `dev-*`) bị bỏ qua.
 
+### Chạy lại các phép đo hiệu năng và chỉ mục
+
+Các phép đo này không cần bộ câu hỏi đã duyệt. Mỗi lệnh ghi một file `final-*` và điền bảng tương ứng vào README.
+
+```bash
+python -m evals.bench_index --readme README.md      # dựng/cập nhật chỉ mục, Qdrant so với FAISS (~40 phút trên CPU)
+python -m evals.compare_stores --readme README.md   # kết quả truy hồi của hai kho vector có giống nhau không
+
+# Load test: chạy API ở terminal khác (đặt RAG_EMBEDDING_DEVICE=cpu nếu GPU 8 GB), rồi:
+python -m evals.perf.load_test --label serial-1 --users 1,5,10,20 --out evals/reports/final-perf-serial-1.json
+python -m evals.perf.summarize evals/reports/final-perf-*.json --readme README.md
+```
+
 ## Cấu trúc thư mục
 
 ```text
@@ -418,6 +445,7 @@ Các bài kiểm thử không cần tải mô hình và không cần Ollama.
 
 - **Mô hình ngôn ngữ nhỏ có thể trả lời sai** dù đã được cung cấp đúng điều khoản (đặc biệt với quy định có lộ trình hoặc phải tính toán). Luôn đối chiếu với điều khoản được trích dẫn.
 - **Viết lại câu hỏi không dấu đôi khi làm sai nghĩa** (xem phần đánh giá). Tắt bằng `RAG_REWRITE_QUERIES=false` nếu cần.
+- **Chưa đo chất lượng câu trả lời trên bộ tài liệu pháp luật.** Bộ 215 câu hỏi nháp chưa được duyệt tay nên bảng ablation chưa có số. Hệ quả: ngưỡng từ chối mặc định (0,20) được chọn trên bộ 53 câu cũ của `papers/` và chưa được hiệu chỉnh lại cho văn bản pháp luật.
 - **Chưa phân biệt văn bản còn hiệu lực hay đã hết hiệu lực:** các văn bản cũ và mới cùng đề tài đều có thể được trích dẫn.
 - Bảng không có đường kẻ không được nhận diện thành bảng; bảng kéo dài qua nhiều trang bị tách thành nhiều đoạn.
 - PDF dạng ảnh scan chưa được hỗ trợ với bộ đọc pdfplumber (cần bản PDF có lớp chữ).

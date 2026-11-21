@@ -1,0 +1,161 @@
+{
+  "documents": 8,
+  "pages": 423,
+  "chunks": 1881,
+  "chunk_chars": {
+    "mean": 838.4,
+    "median": 890,
+    "max": 1200,
+    "min": 154
+  },
+  "chunk_types": {
+    "preamble": 13,
+    "text": 1867,
+    "table": 1
+  },
+  "per_document": [
+    {
+      "file": "12_2022_ND-CP_m_479312.pdf",
+      "title": "Nghị định 12/2022/NĐ-CP",
+      "pages": 66,
+      "chunks": 282,
+      "dieu": 64,
+      "dieu_range": [
+        1,
+        64
+      ],
+      "last_dieu_title": "Trách nhiệm hướng dẫn và thi hành",
+      "dieu_missing": [],
+      "tables": 0,
+      "structured": true,
+      "no_text": false,
+      "in_sources": true
+    },
+    {
+      "file": "145_2020_ND-CP_m_459400.pdf",
+      "title": "Nghị định 145/2020/NĐ-CP",
+      "pages": 47,
+      "chunks": 292,
+      "dieu": 115,
+      "dieu_range": [
+        1,
+        115
+      ],
+      "last_dieu_title": "Trách nhiệm thi hành",
+      "dieu_missing": [],
+      "tables": 0,
+      "structured": true,
+      "no_text": false,
+      "in_sources": true
+    },
+    {
+      "file": "18_VBHN-VPQH_m_695336.pdf",
+      "title": "Bộ luật Lao động 2019 (văn bản hợp nhất)",
+      "pages": 78,
+      "chunks": 307,
+      "dieu": 220,
+      "dieu_range": [
+        1,
+        220
+      ],
+      "last_dieu_title": "Hiệu lực thi hành",
+      "dieu_missing": [],
+      "tables": 0,
+      "structured": true,
+      "no_text": false,
+      "in_sources": true
+    },
+    {
+      "file": "283_2026_ND-CP_m_642116.pdf",
+      "title": "Nghị định 283/2026/NĐ-CP",
+      "pages": 79,
+      "chunks": 355,
+      "dieu": 68,
+      "dieu_range": [
+        1,
+        68
+      ],
+      "last_dieu_title": "Trách nhiệm hướng dẫn và thi hành",
+      "dieu_missing": [],
+      "tables": 0,
+      "structured": true,
+      "no_text": false,
+      "in_sources": true
+    },
+    {
+      "file": "41_2024_QH15_m_557190.pdf",
+      "title": "Luật Bảo hiểm xã hội 2024",
+      "pages": 58,
+      "chunks": 272,
+      "dieu": 141,
+      "dieu_range": [
+        1,
+        141
+      ],
+      "last_dieu_title": "Quy định chuyển tiếp",
+      "dieu_missing": [],
+      "tables": 0,
+      "structured": true,
+      "no_text": false,
+      "in_sources": true
+    },
+    {
+      "file": "74_2025_QH15_m_530912.pdf",
+      "title": "Luật Việc làm 2025",
+      "pages": 25,
+      "chunks": 88,
+      "dieu": 55,
+      "dieu_range": [
+        1,
+        55
+      ],
+      "last_dieu_title": "Quy định chuyển tiếp",
+      "dieu_missing": [],
+      "tables": 1,
+      "structured": true,
+      "no_text": false,
+      "in_sources": true
+    },
+    {
+      "file": "84_2015_QH13_m_281961.pdf",
+      "title": "Luật An toàn, vệ sinh lao động 2015",
+      "pages": 48,
+      "chunks": 209,
+      "dieu": 93,
+      "dieu_range": [
+        1,
+        93
+      ],
+      "last_dieu_title": "Quy định chi tiết",
+      "dieu_missing": [],
+      "tables": 0,
+      "structured": true,
+      "no_text": false,
+      "in_sources": true
+    },
+    {
+      "file": "91_2025_QH15_m_625628.pdf",
+      "title": "Luật Bảo vệ dữ liệu cá nhân 2025",
+      "pages": 22,
+      "chunks": 76,
+      "dieu": 39,
+      "dieu_range": [
+        1,
+        39
+      ],
+      "last_dieu_title": "Quy định chuyển tiếp",
+      "dieu_missing": [],
+      "tables": 0,
+      "structured": true,
+      "no_text": false,
+      "in_sources": true
+    }
+  ],
+  "settings": {
+    "docs_dir": "/home/ngocluong/code/ChatBot/data/corpus",
+    "pdf_loader": "pdfplumber",
+    "chunking": "legal",
+    "chunk_size": "1200",
+    "chunk_overlap": "200"
+  }
+}

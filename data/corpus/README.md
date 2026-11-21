@@ -46,7 +46,7 @@ Chỉ dùng văn bản quy phạm pháp luật công khai từ cổng chính th�
 
 ```bash
 export RAG_DOCS_DIR=data/corpus RAG_PDF_LOADER=pdfplumber RAG_CHUNKING=legal
-python -m ragbot.stats --out evals/reports/corpus-stats.json
+python -m ragbot.stats --out evals/reports/final-corpus-stats.json
 ```
 
 Đọc bảng kết quả: mỗi văn bản phải có số Điều hợp lý, không có ghi chú "thiếu Điều" (trừ Điều đã bị bãi bỏ),
