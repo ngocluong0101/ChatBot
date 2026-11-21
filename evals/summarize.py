@@ -2,12 +2,18 @@
 
     python -m evals.summarize evals/reports/final-*-test.json
     python -m evals.summarize evals/reports/final-*-test.json --out evals/reports/final-ablation.md
+    python -m evals.summarize evals/reports/final-*-test.json --readme README.md   # tự điền bảng vào README
+
+`--readme` thay nội dung giữa các cặp dấu `<!-- ablation:start -->`…`<!-- ablation:end -->` (bảng ablation) và
+`<!-- dataset:start -->`…`<!-- dataset:end -->` (thống kê bộ câu hỏi) trong README, để số liệu công bố luôn
+đi thẳng từ file báo cáo/dataset, không chép tay.
 
 Mọi số trong bảng lấy trực tiếp từ các file báo cáo, cột cuối ghi tên file để người đọc đối chiếu.
 """
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -109,10 +115,43 @@ def render(paths: Sequence[Path]) -> str:
     return "\n".join(parts)
 
 
+def dataset_table(path: Path) -> str:
+    """Số câu theo nhóm và split của bộ câu hỏi đã duyệt (mọi dòng trong dataset_legal.jsonl đều verified)."""
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    cells: dict[str, dict[str, int]] = {}
+    for row in rows:
+        cell = cells.setdefault(row["category"], {"dev": 0, "test": 0})
+        cell[row.get("split") or "dev"] += 1
+    lines = ["| Nhóm câu hỏi | dev | test | Tổng |", "|---|---|---|---|"]
+    for category, cell in sorted(cells.items()):
+        lines.append(f"| {category} | {cell['dev']} | {cell['test']} | {cell['dev'] + cell['test']} |")
+    dev, test = sum(c["dev"] for c in cells.values()), sum(c["test"] for c in cells.values())
+    lines.append(f"| **Tổng** | **{dev}** | **{test}** | **{dev + test}** |")
+    no_answer = sum(1 for r in rows if not r["answerable"])
+    return (
+        "\n".join(lines)
+        + f"\n\n{no_answer}/{len(rows)} câu ({no_answer / len(rows):.0%}) không có đáp án trong tài liệu."
+    )
+
+
+def inject(text: str, name: str, content: str) -> str:
+    """Thay nội dung giữa `<!-- name:start -->` và `<!-- name:end -->`; báo lỗi nếu README thiếu cặp dấu."""
+    pattern = re.compile(
+        rf"(<!-- {re.escape(name)}:start -->\n).*?(\n<!-- {re.escape(name)}:end -->)", re.DOTALL
+    )
+    if not pattern.search(text):
+        raise ValueError(f"README thiếu cặp dấu <!-- {name}:start --> / <!-- {name}:end -->")
+    return pattern.sub(lambda m: m.group(1) + content + m.group(2), text, count=1)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Bảng markdown từ các báo cáo đánh giá")
     parser.add_argument("reports", nargs="+", type=Path)
     parser.add_argument("--out", type=Path, help="ghi ra file markdown")
+    parser.add_argument(
+        "--readme", type=Path, help="điền bảng vào README (giữa các dấu <!-- ablation:start -->)"
+    )
+    parser.add_argument("--dataset", type=Path, default=Path(__file__).parent / "dataset_legal.jsonl")
     args = parser.parse_args(argv)
     missing = [p for p in args.reports if not p.is_file()]
     if missing:
@@ -122,6 +161,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(text)
     if args.out:
         args.out.write_text(text + "\n", encoding="utf-8")
+    if args.readme:
+        readme = inject(args.readme.read_text(encoding="utf-8"), "ablation", text)
+        if args.dataset.is_file():
+            readme = inject(readme, "dataset", dataset_table(args.dataset))
+        args.readme.write_text(readme, encoding="utf-8")
+        print(f"\nĐã cập nhật {args.readme}")
     return 0
 
 

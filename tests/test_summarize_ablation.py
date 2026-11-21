@@ -176,3 +176,64 @@ def test_limit_requires_include_unverified_and_is_forwarded(tmp_path: Path):
 def test_limited_reports_are_flagged_by_the_summary(tmp_path: Path):
     path = write(tmp_path, "a.json", report("A", limit=10))
     assert "--limit" in sm.render([path])
+
+
+# ---------------------------------------------------------------- điền bảng vào README
+
+
+README_TEMPLATE = (
+    "đầu\n<!-- ablation:start -->\ncũ\n<!-- ablation:end -->\n"
+    "giữa\n<!-- dataset:start -->\ncũ\n<!-- dataset:end -->\ncuối\n"
+)
+
+
+def test_inject_replaces_only_the_marked_block():
+    out = sm.inject(README_TEMPLATE, "ablation", "BẢNG MỚI")
+    assert "<!-- ablation:start -->\nBẢNG MỚI\n<!-- ablation:end -->" in out
+    assert out.startswith("đầu\n") and "giữa" in out and out.count("cũ") == 1  # khối dataset không đổi
+    assert sm.inject(out, "ablation", "BẢNG MỚI") == out  # chạy lại ra đúng kết quả cũ (idempotent)
+
+
+def test_inject_keeps_special_characters_in_the_content():
+    out = sm.inject(README_TEMPLATE, "dataset", r"| a \1 | `x` |")
+    assert r"| a \1 | `x` |" in out
+
+
+def test_inject_fails_loudly_when_markers_are_missing():
+    with pytest.raises(ValueError, match="ablation"):
+        sm.inject("không có dấu nào", "ablation", "x")
+
+
+def write_dataset(path: Path) -> Path:
+    rows = [
+        {"id": "a", "category": "factoid", "answerable": True, "split": "dev"},
+        {"id": "b", "category": "factoid", "answerable": True, "split": "test"},
+        {"id": "c", "category": "factoid", "answerable": True, "split": "test"},
+        {"id": "d", "category": "off_topic", "answerable": False, "split": "dev"},
+    ]
+    path.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+    return path
+
+
+def test_dataset_table_counts_per_category_and_split(tmp_path: Path):
+    table = sm.dataset_table(write_dataset(tmp_path / "d.jsonl"))
+    assert "| factoid | 1 | 2 | 3 |" in table and "| off_topic | 1 | 0 | 1 |" in table
+    assert "| **Tổng** | **2** | **2** | **4** |" in table
+    assert "1/4 câu (25%) không có đáp án" in table
+
+
+def test_main_updates_both_readme_blocks(tmp_path: Path):
+    readme = tmp_path / "README.md"
+    readme.write_text(README_TEMPLATE, encoding="utf-8")
+    report_path = write(tmp_path, "final-x-test.json", report("X"))
+    dataset = write_dataset(tmp_path / "d.jsonl")
+
+    assert sm.main([str(report_path), "--readme", str(readme), "--dataset", str(dataset)]) == 0
+    text = readme.read_text(encoding="utf-8")
+    assert "| X | 0.800 [0.70–0.90]" in text and "| **Tổng** |" in text and "cũ" not in text
+
+
+def test_the_real_readme_has_the_marker_pairs_the_tool_updates():
+    readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
+    for name in ("ablation", "dataset"):
+        assert f"<!-- {name}:start -->" in readme and f"<!-- {name}:end -->" in readme
