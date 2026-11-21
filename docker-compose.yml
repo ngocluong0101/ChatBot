@@ -12,14 +12,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    # Dùng GPU NVIDIA (cần nvidia-container-toolkit): bỏ comment khối dưới.
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    # Dùng GPU NVIDIA: chạy thêm file docker-compose.gpu.yml (cần nvidia-container-toolkit):
+    #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 
   # Kho vector. Không publish cổng 6333/6334 ra máy chủ: chỉ service `app` trong cùng mạng Compose truy cập được.
   # (Muốn xem dashboard, thêm tạm `ports: ["127.0.0.1:6333:6333"]`, đừng mở ra 0.0.0.0.)
@@ -68,7 +62,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./papers:/app/papers:ro
+      # Bộ văn bản pháp luật: ./data/corpus (PDF) và ./data/SOURCES.md, không nằm trong image.
+      - ./data:/app/data:ro
       - appdata:/data
     # App thoát khi Ollama chưa có model; tự thử lại sau khi bạn `ollama pull`.
     restart: on-failure

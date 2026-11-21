@@ -1,0 +1,13 @@
+# Bật GPU NVIDIA cho Ollama trong Docker (cần driver NVIDIA + nvidia-container-toolkit trên máy chủ).
+# Chạy:  docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# Kiểm tra máy đã sẵn sàng:  docker run --rm --gpus all ollama/ollama nvidia-smi
+# Không gộp sẵn vào docker-compose.yml vì máy không có GPU/toolkit sẽ không khởi động được.
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

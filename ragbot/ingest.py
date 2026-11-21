@@ -31,10 +31,16 @@ MARKDOWN_SEPARATORS = [
 def list_pdfs(docs_dir: Path) -> list[Path]:
     """Mọi PDF trong thư mục tài liệu, theo thứ tự tên; báo lỗi sớm nếu thư mục sai hoặc rỗng."""
     if not docs_dir.is_dir():
-        raise NoDocumentsError(f"Thư mục tài liệu không tồn tại: {docs_dir}")
+        raise NoDocumentsError(
+            f"Thư mục tài liệu không tồn tại: {docs_dir}. Đặt các file PDF vào đó "
+            "(xem data/corpus/README.md) hoặc đổi RAG_DOCS_DIR."
+        )
     pdfs = sorted(docs_dir.glob("**/*.pdf"))
     if not pdfs:
-        raise NoDocumentsError(f"Không có file PDF nào trong: {docs_dir}")
+        raise NoDocumentsError(
+            f"Không có file PDF nào trong: {docs_dir}. PDF không nằm trong repo: xem data/corpus/README.md "
+            "để biết cách lấy văn bản và ghi nguồn vào data/SOURCES.md."
+        )
     return pdfs
 
 

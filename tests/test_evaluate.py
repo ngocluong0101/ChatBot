@@ -69,8 +69,9 @@ def test_find_unsupported_examples():
 # ---------------------------------------------------------------- dataset
 
 
-def test_real_dataset_is_well_formed():
-    examples = ev.load_dataset()
+def test_legacy_dataset_is_well_formed():
+    """Bộ 53 câu cũ (từng dùng cho bộ papers/ đã bỏ) giữ lại làm tham chiếu lịch sử; đảm bảo vẫn đọc được."""
+    examples = ev.load_dataset(Path(__file__).parent.parent / "evals" / "dataset.jsonl")
     assert len({e.id for e in examples}) == len(examples)
     assert any(e.answerable for e in examples) and any(not e.answerable for e in examples)
     assert all(e.question.strip() for e in examples)

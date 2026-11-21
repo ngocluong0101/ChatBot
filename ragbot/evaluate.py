@@ -1,4 +1,4 @@
-"""Đánh giá RAG trên bộ câu hỏi `evals/dataset.jsonl`.
+"""Đánh giá RAG trên bộ câu hỏi `evals/dataset_legal.jsonl`.
 
 Ba nhóm chỉ số:
   * Retrieval  : hit@k, MRR, recall nguồn  (chỉ cần embedding, không cần Ollama)
@@ -55,7 +55,7 @@ from ragbot.pipeline import (
     check_ollama,
 )
 
-DEFAULT_DATASET = PROJECT_ROOT / "evals" / "dataset.jsonl"
+DEFAULT_DATASET = PROJECT_ROOT / "evals" / "dataset_legal.jsonl"
 REPORT_SETTINGS_KEYS = (
     "llm_model",
     "embedding_model",

@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     HF_HOME=/data/hf \
     RAG_INDEX_DIR=/data/index \
-    RAG_PAPERS_DIR=/app/papers
+    RAG_DOCS_DIR=/app/data/corpus
 
 # poppler/tesseract: unstructured đọc PDF (tesseract-ocr-vie cho PDF scan tiếng Việt).
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,8 +22,8 @@ RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.
 
 COPY ragbot ./ragbot
 COPY chatbot.py .
-COPY papers ./papers
 
+# PDF văn bản pháp luật không nằm trong image: docker-compose gắn ./data vào /app/data (chỉ đọc).
 # /data giữ model HuggingFace đã tải và FAISS index: mount volume để không tải/dựng lại mỗi lần.
 RUN useradd --create-home app && mkdir -p /data && chown -R app /data
 USER app

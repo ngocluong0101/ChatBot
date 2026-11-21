@@ -252,6 +252,10 @@ Ba cấu hình thiết bị đã thử với **một** người dùng (20 yêu c
 
 ## Bắt đầu nhanh
 
+### Chuẩn bị: bộ văn bản pháp luật
+
+Dự án chạy trên một bộ văn bản pháp luật. **File PDF không nằm trong repo** (`data/corpus/*.pdf` bị bỏ qua khỏi git): hãy đặt các PDF vào `data/corpus/` và ghi nguồn từng file vào [data/SOURCES.md](data/SOURCES.md) (tên file phải khớp từng ký tự). Hướng dẫn chọn đúng loại PDF (phải có lớp chữ, không phải ảnh scan) và danh sách văn bản đang dùng: [data/corpus/README.md](data/corpus/README.md). Thiếu PDF thì ứng dụng dừng ngay với thông báo chỉ tới hướng dẫn này.
+
 ### Cách 1: Docker
 
 ```bash
@@ -259,27 +263,14 @@ docker compose up -d --build
 docker compose exec ollama ollama pull qwen2.5:7b-instruct   # chỉ cần lần đầu
 ```
 
-Compose chạy ba dịch vụ: `ollama` (mô hình ngôn ngữ), `qdrant` (kho vector, dữ liệu nằm trong volume `qdrant`, **không mở cổng ra ngoài**) và `app`.
+Compose chạy ba dịch vụ: `ollama` (mô hình ngôn ngữ), `qdrant` (kho vector, dữ liệu nằm trong volume `qdrant`, **không mở cổng ra ngoài**) và `app`. Thư mục `./data` (PDF và `SOURCES.md`) được gắn vào container ở chế độ chỉ đọc.
 
-Mở trình duyệt tại **http://localhost:8000**.
+Mở trình duyệt tại **http://localhost:8000**. Lần đầu app dựng chỉ mục (1881 đoạn, khoảng vài chục phút trên CPU); xong khi `curl localhost:8000/health` báo `"chunks":1881`. Từ lần sau chỉ file thay đổi mới được xử lý lại.
 
 Lưu ý:
 - Lần đầu cần mạng để tải mô hình (khoảng 10GB gồm mô hình ngôn ngữ và hai mô hình tìm kiếm).
-- Mặc định chạy bằng CPU nên sẽ chậm. Nếu có GPU NVIDIA, bỏ dấu `#` ở khối `deploy` trong `docker-compose.yml`.
+- Mặc định Ollama trong Docker chạy bằng CPU nên sẽ chậm (một câu trả lời khoảng 20–50 giây). Nếu có GPU NVIDIA và đã cài `nvidia-container-toolkit`, chạy `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d`: quan sát thủ công trên máy này, câu trả lời còn khoảng 7 giây khi đã "nóng" (lần đầu lâu hơn do nạp mô hình). Phần embedding và reranker trong container vẫn chạy CPU (image dùng torch bản CPU).
 - Nếu cổng 8000 đã bị chiếm, đổi `"8000:8000"` trong `docker-compose.yml` thành cổng khác, ví dụ `"8080:8000"`.
-- Cấu hình mặc định dùng bộ tài liệu mẫu nhỏ trong `papers/`. Muốn dùng bộ văn bản pháp luật, tạo file `docker-compose.override.yml` cạnh `docker-compose.yml`:
-
-```yaml
-services:
-  app:
-    environment:
-      RAG_DOCS_DIR: /app/data/corpus
-      RAG_PDF_LOADER: pdfplumber
-      RAG_CHUNKING: legal
-      RAG_QDRANT_COLLECTION: legal   # tách khỏi dữ liệu của bộ papers/ trong cùng Qdrant
-    volumes:
-      - ./data:/app/data:ro
-```
 
 ### Cách 2: Chạy trực tiếp trên máy
 
@@ -292,26 +283,16 @@ pip install -r requirements.txt
 
 ollama pull qwen2.5:7b-instruct
 
+python -m ragbot.stats                              # kiểm tra bộ tài liệu: số Điều, bảng, file không đọc được
 python chatbot.py                                   # dùng qua dòng lệnh
 uvicorn ragbot.api:app --host 0.0.0.0 --port 8000   # hoặc mở giao diện web ở http://localhost:8000
 ```
 
 Lần chạy đầu sẽ tự tải mô hình tìm kiếm từ HuggingFace (khoảng 4GB). Trong dòng lệnh, gõ `reset` để bắt đầu cuộc trò chuyện mới và `exit` để thoát.
 
-Chạy trực tiếp không cần Docker: Qdrant mặc định chạy **nhúng ngay trong tiến trình** (dữ liệu ở `.index/qdrant`, không cần máy chủ riêng; chỉ một tiến trình mở được cùng lúc). Muốn nối tới một máy chủ Qdrant có sẵn, đặt `RAG_QDRANT_URL=http://localhost:6333`. Muốn chế độ đơn giản nhất, đặt `RAG_VECTOR_STORE=faiss` (nhanh, nhưng đổi một file là dựng lại toàn bộ và lưu bằng `pickle`).
-
-### Dùng bộ văn bản pháp luật
-
-Đặt các file PDF vào `data/corpus/` và ghi nguồn vào [data/SOURCES.md](data/SOURCES.md) (hướng dẫn chi tiết, cách chọn đúng loại PDF: [data/corpus/README.md](data/corpus/README.md)), rồi:
-
-```bash
-export RAG_DOCS_DIR=data/corpus RAG_PDF_LOADER=pdfplumber RAG_CHUNKING=legal
-export RAG_INDEX_DIR=.index-legal          # tách khỏi chỉ mục của bộ papers/ để khỏi bị dựng lại khi đổi qua lại
-python -m ragbot.stats                     # kiểm tra: số Điều, bảng, file không đọc được
-python chatbot.py
-```
-
 Lần đầu dựng chỉ mục cho vài trăm trang mất vài phút (trên CPU: khoảng 0,6 giây mỗi đoạn, tức khoảng 18 phút cho 1881 đoạn). Từ lần sau, thêm, sửa hoặc xóa một PDF chỉ làm xử lý lại đúng file đó (số đo cụ thể ở mục [Cập nhật chỉ mục từng phần](#cập-nhật-chỉ-mục-từng-phần)). PDF phải có lớp chữ; PDF dạng ảnh scan cần OCR (`apt install tesseract-ocr tesseract-ocr-vie`) và hiện chưa được hỗ trợ cho bộ đọc pdfplumber.
+
+Qdrant mặc định chạy **nhúng ngay trong tiến trình** (dữ liệu ở `.index/qdrant`, không cần máy chủ riêng; chỉ một tiến trình mở được cùng lúc). Muốn nối tới một máy chủ Qdrant có sẵn, đặt `RAG_QDRANT_URL=http://localhost:6333`. Muốn chế độ đơn giản nhất, đặt `RAG_VECTOR_STORE=faiss` (nhanh, nhưng đổi một file là dựng lại toàn bộ và lưu bằng `pickle`).
 
 ## Dùng qua API
 
@@ -348,7 +329,7 @@ RAG_RERANK_MODEL=             # tắt mô hình chấm lại để tiết kiệm
 RAG_API_KEY=mat-khau-cua-ban  # bật khóa API
 ```
 
-Các tham số về dữ liệu: `RAG_DOCS_DIR` (thư mục PDF; tên cũ `RAG_PAPERS_DIR` vẫn dùng được), `RAG_PDF_LOADER` (`unstructured` hoặc `pdfplumber`), `RAG_CHUNKING` (`fixed`, `section` hoặc `legal`), `RAG_SOURCES_FILE`, `RAG_VECTOR_STORE` (`qdrant` hoặc `faiss`), `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION`. Về hiệu năng và quan sát: `RAG_MAX_CONCURRENT_REQUESTS`, `RAG_QUEUE_TIMEOUT_SECONDS`, `RAG_EMBEDDING_DEVICE` / `RAG_RERANK_DEVICE` (`auto`, `cpu`, `cuda`), `RAG_EMBEDDING_DTYPE`, `RAG_TRACING_ENABLED`, `RAG_OTLP_ENDPOINT`, `RAG_METRICS_ENABLED`. Danh sách đầy đủ có trong [.env.example](.env.example) và [ragbot/config.py](ragbot/config.py).
+Các tham số về dữ liệu: `RAG_DOCS_DIR` (thư mục PDF, mặc định `data/corpus`), `RAG_PDF_LOADER` (`pdfplumber` mặc định, hoặc `unstructured`), `RAG_CHUNKING` (`legal` mặc định, hoặc `section`, `fixed`), `RAG_SOURCES_FILE`, `RAG_VECTOR_STORE` (`qdrant` hoặc `faiss`), `RAG_QDRANT_URL`, `RAG_QDRANT_COLLECTION`. Về hiệu năng và quan sát: `RAG_MAX_CONCURRENT_REQUESTS`, `RAG_QUEUE_TIMEOUT_SECONDS`, `RAG_EMBEDDING_DEVICE` / `RAG_RERANK_DEVICE` (`auto`, `cpu`, `cuda`), `RAG_EMBEDDING_DTYPE`, `RAG_TRACING_ENABLED`, `RAG_OTLP_ENDPOINT`, `RAG_METRICS_ENABLED`. Danh sách đầy đủ có trong [.env.example](.env.example) và [ragbot/config.py](ragbot/config.py).
 
 ## Chạy lại đánh giá
 
@@ -356,7 +337,7 @@ Cần Ollama đang chạy, các mô hình đã tải và bộ PDF trong `data/co
 
 ```bash
 # 1. Thống kê bộ tài liệu
-python -m ragbot.stats --set docs_dir=data/corpus --set pdf_loader=pdfplumber --set chunking=legal
+python -m ragbot.stats
 
 # 2. Soạn nháp, duyệt tay, gộp vào bộ chính thức (evals/dataset_legal.jsonl), chia dev/test
 python -m evals.draft_questions --out evals/drafts/draft-001.jsonl
@@ -377,9 +358,9 @@ Chạy một cấu hình riêng lẻ:
 
 ```bash
 python -m ragbot.evaluate --dataset evals/dataset_legal.jsonl --split dev --mode retrieval \
-    --set docs_dir=data/corpus --set pdf_loader=pdfplumber --set chunking=legal --out evals/reports/dev-x.json
+    --out evals/reports/dev-x.json
 python -m ragbot.evaluate --dataset evals/dataset_legal.jsonl --split test --mode full \
-    --set docs_dir=data/corpus --set pdf_loader=pdfplumber --set chunking=legal \
+    \
     --threshold-from evals/reports/dev-x.json --out evals/reports/final-x-test.json
 ```
 
@@ -425,7 +406,6 @@ python -m evals.perf.summarize evals/reports/final-perf-*.json --readme README.m
 │   └── perf/               # load test nhiều người dùng, bộ câu hỏi, bảng hiệu năng
 ├── data/                   # SOURCES.md và thư mục corpus/ (PDF không đưa vào repo)
 ├── docs/                   # hướng dẫn quay demo
-├── papers/                 # tài liệu PDF mẫu nhỏ
 ├── tests/                  # kiểm thử tự động
 ├── Dockerfile, docker-compose.yml
 └── .github/workflows/      # kiểm tra tự động khi đẩy mã lên GitHub
@@ -445,7 +425,7 @@ Các bài kiểm thử không cần tải mô hình và không cần Ollama.
 
 - **Mô hình ngôn ngữ nhỏ có thể trả lời sai** dù đã được cung cấp đúng điều khoản (đặc biệt với quy định có lộ trình hoặc phải tính toán). Luôn đối chiếu với điều khoản được trích dẫn.
 - **Viết lại câu hỏi không dấu đôi khi làm sai nghĩa** (xem phần đánh giá). Tắt bằng `RAG_REWRITE_QUERIES=false` nếu cần.
-- **Chưa đo chất lượng câu trả lời trên bộ tài liệu pháp luật.** Bộ 215 câu hỏi nháp chưa được duyệt tay nên bảng ablation chưa có số. Hệ quả: ngưỡng từ chối mặc định (0,20) được chọn trên bộ 53 câu cũ của `papers/` và chưa được hiệu chỉnh lại cho văn bản pháp luật.
+- **Chưa đo chất lượng câu trả lời trên bộ tài liệu pháp luật.** Bộ 215 câu hỏi nháp chưa được duyệt tay nên bảng ablation chưa có số. Hệ quả: ngưỡng từ chối mặc định (0,20) được chọn trên bộ 53 câu cũ cho 5 PDF mẫu (đã bỏ khỏi repo) và chưa được hiệu chỉnh lại cho văn bản pháp luật.
 - **Chưa phân biệt văn bản còn hiệu lực hay đã hết hiệu lực:** các văn bản cũ và mới cùng đề tài đều có thể được trích dẫn.
 - Bảng không có đường kẻ không được nhận diện thành bảng; bảng kéo dài qua nhiều trang bị tách thành nhiều đoạn.
 - PDF dạng ảnh scan chưa được hỗ trợ với bộ đọc pdfplumber (cần bản PDF có lớp chữ).

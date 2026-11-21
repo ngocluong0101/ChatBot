@@ -10,13 +10,13 @@ from ragbot.config import Settings
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    papers = tmp_path / "papers"
+    papers = tmp_path / "docs"
     papers.mkdir()
     (papers / "a.pdf").write_bytes(b"alpha")
     (papers / "b.pdf").write_bytes(b"beta")
     # Các test dưới đây kiểm tra đường FAISS (pickle, một fingerprint cho cả thư mục); đường Qdrant ở
     # tests/test_indexing_qdrant.py.
-    return Settings(papers_dir=papers, index_dir=tmp_path / "index", vector_store="faiss")
+    return Settings(docs_dir=papers, index_dir=tmp_path / "index", vector_store="faiss")
 
 
 @pytest.fixture
@@ -45,13 +45,13 @@ def test_fingerprint_is_stable(settings: Settings):
 
 def test_fingerprint_changes_when_pdf_content_changes(settings: Settings):
     before = indexing.compute_fingerprint(settings)
-    (settings.papers_dir / "a.pdf").write_bytes(b"alpha edited")
+    (settings.docs_dir / "a.pdf").write_bytes(b"alpha edited")
     assert indexing.compute_fingerprint(settings) != before
 
 
 def test_fingerprint_changes_when_pdf_added(settings: Settings):
     before = indexing.compute_fingerprint(settings)
-    (settings.papers_dir / "c.pdf").write_bytes(b"gamma")
+    (settings.docs_dir / "c.pdf").write_bytes(b"gamma")
     assert indexing.compute_fingerprint(settings) != before
 
 
@@ -73,7 +73,7 @@ def test_second_run_uses_cache(settings: Settings, fake_ingest):
 
 def test_cache_invalidated_when_pdf_changes(settings: Settings, fake_ingest):
     indexing.load_or_build_index(settings, EMB)
-    (settings.papers_dir / "a.pdf").write_bytes(b"alpha edited")
+    (settings.docs_dir / "a.pdf").write_bytes(b"alpha edited")
     indexing.load_or_build_index(settings, EMB)
     assert fake_ingest["load"] == 2
 
@@ -94,8 +94,8 @@ def test_no_leftover_tmp_dir(settings: Settings, fake_ingest):
 
 
 def test_fingerprint_depends_on_pdf_loader_and_legal_sources(settings: Settings, tmp_path: Path):
-    before = indexing.compute_fingerprint(settings)
-    assert indexing.compute_fingerprint(settings.model_copy(update={"pdf_loader": "pdfplumber"})) != before
+    unstructured = settings.model_copy(update={"pdf_loader": "unstructured"})
+    assert indexing.compute_fingerprint(settings) != indexing.compute_fingerprint(unstructured)
 
     sources = tmp_path / "SOURCES.md"
     sources.write_text("| File | Tên văn bản |\n|---|---|\n| a.pdf | Luật A |\n", encoding="utf-8")

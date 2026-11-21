@@ -45,8 +45,7 @@ Chỉ dùng văn bản quy phạm pháp luật công khai từ cổng chính th�
 ## 4. Kiểm tra trước khi dựng chỉ mục
 
 ```bash
-export RAG_DOCS_DIR=data/corpus RAG_PDF_LOADER=pdfplumber RAG_CHUNKING=legal
-python -m ragbot.stats --out evals/reports/final-corpus-stats.json
+python -m ragbot.stats --out evals/reports/final-corpus-stats.json   # mặc định đã là data/corpus + pdfplumber + legal
 ```
 
 Đọc bảng kết quả: mỗi văn bản phải có số Điều hợp lý, không có ghi chú "thiếu Điều" (trừ Điều đã bị bãi bỏ),
@@ -55,9 +54,7 @@ python -m ragbot.stats --out evals/reports/final-corpus-stats.json
 ## 5. Chạy chatbot trên corpus này
 
 ```bash
-export RAG_DOCS_DIR=data/corpus RAG_PDF_LOADER=pdfplumber RAG_CHUNKING=legal
-export RAG_INDEX_DIR=.index-corpus        # tách khỏi .index của bộ papers/ cũ để không bị dựng lại khi đổi qua lại
-python chatbot.py
+python chatbot.py          # cấu hình mặc định đã trỏ tới data/corpus
 ```
 
 Lần đầu dựng chỉ mục mất vài phút (vài trăm chunk; trên CPU khoảng 0,4 giây/chunk, nhanh hơn nhiều với GPU).
