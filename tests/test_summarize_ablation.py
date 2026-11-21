@@ -235,5 +235,5 @@ def test_main_updates_both_readme_blocks(tmp_path: Path):
 
 def test_the_real_readme_has_the_marker_pairs_the_tool_updates():
     readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
-    for name in ("ablation", "dataset"):
+    for name in ("ablation", "dataset", "indextiming", "equivalence"):
         assert f"<!-- {name}:start -->" in readme and f"<!-- {name}:end -->" in readme

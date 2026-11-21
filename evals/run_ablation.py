@@ -27,6 +27,7 @@ RERANKER = "BAAI/bge-reranker-v2-m3"
 BASE = {
     "docs_dir": "data/corpus",
     "pdf_loader": "pdfplumber",
+    "vector_store": "qdrant",  # ghim rõ: kết quả ablation không phụ thuộc vào mặc định của cấu hình
     "llm_model": "qwen2.5:7b-instruct",
     "top_k": "5",
     "fetch_k": "10",

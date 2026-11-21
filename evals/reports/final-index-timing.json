@@ -1,0 +1,87 @@
+{
+  "qdrant": {
+    "first_build": {
+      "seconds": 924.05,
+      "added": [
+        "12_2022_ND-CP_m_479312.pdf",
+        "145_2020_ND-CP_m_459400.pdf",
+        "18_VBHN-VPQH_m_695336.pdf",
+        "283_2026_ND-CP_m_642116.pdf",
+        "41_2024_QH15_m_557190.pdf",
+        "74_2025_QH15_m_530912.pdf",
+        "84_2015_QH13_m_281961.pdf",
+        "91_2025_QH15_m_625628.pdf"
+      ],
+      "updated": [],
+      "removed": [],
+      "unchanged": 0,
+      "chunks_embedded": 1881,
+      "chunks_total": 1881
+    },
+    "restart_unchanged": {
+      "seconds": 0.02,
+      "added": [],
+      "updated": [],
+      "removed": [],
+      "unchanged": 8,
+      "chunks_embedded": 0,
+      "chunks_total": 1881
+    },
+    "update_small_file": {
+      "seconds": 36.93,
+      "added": [],
+      "updated": [
+        "91_2025_QH15_m_625628.pdf"
+      ],
+      "removed": [],
+      "unchanged": 7,
+      "chunks_embedded": 76,
+      "chunks_total": 1881,
+      "file": "91_2025_QH15_m_625628.pdf"
+    },
+    "update_large_file": {
+      "seconds": 149.66,
+      "added": [],
+      "updated": [
+        "18_VBHN-VPQH_m_695336.pdf"
+      ],
+      "removed": [],
+      "unchanged": 7,
+      "chunks_embedded": 307,
+      "chunks_total": 1881,
+      "file": "18_VBHN-VPQH_m_695336.pdf"
+    },
+    "remove_file": {
+      "seconds": 0.34,
+      "added": [],
+      "updated": [],
+      "removed": [
+        "91_2025_QH15_m_625628.pdf"
+      ],
+      "unchanged": 7,
+      "chunks_embedded": 0,
+      "chunks_total": 1805,
+      "file": "91_2025_QH15_m_625628.pdf"
+    }
+  },
+  "faiss": {
+    "full_rebuild_seconds": 804.46,
+    "chunks": 1881,
+    "reload_unchanged_seconds": 0.01
+  },
+  "speedup_vs_faiss_rebuild": {
+    "update_small_file": 21.8,
+    "update_large_file": 5.4
+  },
+  "meta": {
+    "created_at": "2026-11-21T05:03:20+00:00",
+    "embedding_model": "BAAI/bge-m3",
+    "embedding_model_load_seconds": 9.5,
+    "device": "cpu",
+    "cpu_count": 16,
+    "machine": "x86_64",
+    "corpus_files": 8,
+    "chunking": "legal",
+    "pdf_loader": "pdfplumber"
+  }
+}

@@ -2,6 +2,7 @@
 
 import logging
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
 from langchain_community.document_loaders import DirectoryLoader, UnstructuredFileLoader
@@ -27,15 +28,29 @@ MARKDOWN_SEPARATORS = [
 ]
 
 
-def load_documents(settings: Settings) -> list[Document]:
-    """Đọc PDF theo từng trang và chuẩn hóa metadata về {source, page}."""
-    docs_dir = settings.docs_dir
+def list_pdfs(docs_dir: Path) -> list[Path]:
+    """Mọi PDF trong thư mục tài liệu, theo thứ tự tên; báo lỗi sớm nếu thư mục sai hoặc rỗng."""
     if not docs_dir.is_dir():
         raise NoDocumentsError(f"Thư mục tài liệu không tồn tại: {docs_dir}")
-    if not any(docs_dir.glob("**/*.pdf")):
+    pdfs = sorted(docs_dir.glob("**/*.pdf"))
+    if not pdfs:
         raise NoDocumentsError(f"Không có file PDF nào trong: {docs_dir}")
+    return pdfs
 
-    docs = _load_pdfplumber(docs_dir) if settings.pdf_loader == "pdfplumber" else _load_unstructured(docs_dir)
+
+def load_documents(settings: Settings, only: Sequence[Path] | None = None) -> list[Document]:
+    """Đọc PDF theo từng trang và chuẩn hóa metadata về {source, page}.
+
+    `only`: chỉ đọc các file này (dùng khi cập nhật chỉ mục từng phần); mặc định đọc cả thư mục.
+    """
+    docs_dir = settings.docs_dir
+    paths = list(only) if only is not None else list_pdfs(docs_dir)
+    if settings.pdf_loader == "pdfplumber":
+        docs = _load_pdfplumber(paths)
+    elif only is None:
+        docs = _load_unstructured(docs_dir)
+    else:
+        docs = _load_unstructured_files(paths)
     if not docs:
         raise NoDocumentsError(
             f"Đọc được các file PDF trong {docs_dir} nhưng không trích xuất được văn bản. "
@@ -45,11 +60,33 @@ def load_documents(settings: Settings) -> list[Document]:
     return docs
 
 
-def _load_pdfplumber(docs_dir: Path) -> list[Document]:
+def _load_pdfplumber(paths: Sequence[Path]) -> list[Document]:
     docs: list[Document] = []
-    for pdf in sorted(docs_dir.glob("**/*.pdf")):
+    for pdf in paths:
         docs.extend(pdf_loader.load_pdf(pdf))
     return docs
+
+
+def _clean_unstructured(raw_docs: list[Document]) -> list[Document]:
+    docs: list[Document] = []
+    for doc in raw_docs:
+        meta = doc.metadata
+        source = meta.get("filename") or meta.get("source", "?")
+        if not doc.page_content.strip():
+            # PDF scan (ảnh) không có text layer sẽ trả về rỗng nếu không có OCR.
+            logger.warning("Bỏ qua trang không có nội dung văn bản: %s", source)
+            continue
+        # Loader trả về nhiều metadata nhiễu (tọa độ pixel, parent_id...). Chỉ giữ thứ cần cho citation.
+        doc.metadata = {"source": source, "page": meta.get("page_number")}
+        docs.append(doc)
+    return docs
+
+
+def _load_unstructured_files(paths: Sequence[Path]) -> list[Document]:
+    raw: list[Document] = []
+    for path in paths:
+        raw.extend(UnstructuredFileLoader(str(path), mode="paged", languages=["vie"]).load())
+    return _clean_unstructured(raw)
 
 
 def _load_unstructured(docs_dir: Path) -> list[Document]:
@@ -62,18 +99,7 @@ def _load_unstructured(docs_dir: Path) -> list[Document]:
         show_progress=True,
         use_multithreading=True,
     )
-    docs: list[Document] = []
-    for doc in loader.load():
-        meta = doc.metadata
-        source = meta.get("filename") or meta.get("source", "?")
-        if not doc.page_content.strip():
-            # PDF scan (ảnh) không có text layer sẽ trả về rỗng nếu không có OCR.
-            logger.warning("Bỏ qua trang không có nội dung văn bản: %s", source)
-            continue
-        # Loader trả về nhiều metadata nhiễu (tọa độ pixel, parent_id...). Chỉ giữ thứ cần cho citation.
-        doc.metadata = {"source": source, "page": meta.get("page_number")}
-        docs.append(doc)
-    return docs
+    return _clean_unstructured(loader.load())
 
 
 # Tiêu đề mục dạng "3. Quà tặng và tiếp khách". Dấu chấm phải theo sau bởi khoảng trắng nên

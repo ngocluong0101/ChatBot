@@ -63,6 +63,7 @@ REPORT_SETTINGS_KEYS = (
     "chunk_size",
     "chunk_overlap",
     "retrieval_mode",
+    "vector_store",
     "pdf_loader",
     "rewrite_queries",
     "fetch_k",

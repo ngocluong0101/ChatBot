@@ -8,7 +8,6 @@ from typing import Any
 
 import httpx
 import ollama
-from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -19,6 +18,7 @@ from ragbot.errors import LLMUnavailableError
 from ragbot.indexing import load_or_build_index
 from ragbot.rerank import CrossEncoderReranker
 from ragbot.retrieval import Retriever
+from ragbot.vectorstore import all_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +228,7 @@ class RagPipeline:
     def __init__(
         self,
         settings: Settings,
-        vectorstore: FAISS,
+        vectorstore: Any,
         chain: Any,
         retriever: Retriever | None = None,
         rewrite_chain: Any = None,
@@ -238,11 +238,14 @@ class RagPipeline:
         self._chain = chain
         self._retriever = retriever or Retriever(settings, vectorstore)
         self._rewrite_chain = rewrite_chain
+        self._chunk_cache: list[Document] | None = None
 
     def chunks(self) -> list[Document]:
-        """Mọi chunk đang nằm trong index (dùng cho đánh giá/kiểm tra)."""
-        # InMemoryDocstore chưa có API công khai để liệt kê tài liệu.
-        return list(self._vectorstore.docstore._dict.values())
+        """Mọi chunk đang nằm trong index (dùng cho đánh giá/kiểm tra). Chỉ mục không đổi khi đang chạy nên
+        chỉ đọc một lần (với Qdrant đây là một lượt đọc toàn bộ, không nên lặp ở mỗi lần gọi /health)."""
+        if self._chunk_cache is None:
+            self._chunk_cache = all_chunks(self._vectorstore)
+        return list(self._chunk_cache)
 
     def search(self, question: str) -> list[tuple[Document, float]]:
         """Top-k chunk thô (chưa áp ngưỡng) kèm điểm; ý nghĩa điểm xem ragbot/retrieval.py."""
@@ -319,7 +322,7 @@ class RagPipeline:
         yield StreamEvent("done", answer=self._build_answer(standalone, hits, "".join(parts)))
 
 
-def build_retriever(settings: Settings, vectorstore: FAISS) -> Retriever:
+def build_retriever(settings: Settings, vectorstore: Any) -> Retriever:
     reranker = CrossEncoderReranker(settings.rerank_model) if settings.rerank_model else None
     return Retriever(settings, vectorstore, reranker)
 

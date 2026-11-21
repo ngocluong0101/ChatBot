@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # Bảng tra cứu tên/số hiệu/ngày của từng văn bản (xem data/SOURCES.md). Không có file thì
     # tên văn bản được suy ra từ tên file.
     sources_file: Path = Path("data/SOURCES.md")
+    # Kho vector. "qdrant" (mặc định): hỗ trợ cập nhật từng file, không dùng pickle. "faiss": chạy nhanh,
+    # không cần Docker, lưu bằng pickle và phải dựng lại toàn bộ khi đổi một file.
+    vector_store: Literal["qdrant", "faiss"] = "qdrant"
+    # Qdrant: "" = nhúng ngay trong tiến trình, lưu ở <index_dir>/qdrant (không cần server, chỉ một tiến
+    # trình mở được cùng lúc); "http://host:6333" = server (Docker Compose); ":memory:" = trong RAM (test).
+    qdrant_url: str = ""
+    qdrant_collection: str = "ragbot"
     # "unstructured": đọc theo trang, không nhận diện bảng (giữ cho bộ papers/ cũ).
     # "pdfplumber": giữ thứ tự dòng, nhận diện bảng có đường kẻ; cần cho chunking="legal".
     pdf_loader: Literal["unstructured", "pdfplumber"] = "unstructured"

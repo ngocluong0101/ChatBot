@@ -21,15 +21,35 @@ services:
     #           count: all
     #           capabilities: [gpu]
 
+  # Kho vector. Không publish cổng 6333/6334 ra máy chủ: chỉ service `app` trong cùng mạng Compose truy cập được.
+  # (Muốn xem dashboard, thêm tạm `ports: ["127.0.0.1:6333:6333"]`, đừng mở ra 0.0.0.0.)
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    volumes:
+      - qdrant:/qdrant/storage
+    healthcheck:
+      # Image không có curl; bash có sẵn nên thử mở kết nối TCP tới cổng HTTP.
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   app:
     build: .
     depends_on:
       ollama:
         condition: service_healthy
+      qdrant:
+        condition: service_healthy
     environment:
       RAG_OLLAMA_BASE_URL: http://ollama:11434
+      RAG_VECTOR_STORE: qdrant
+      RAG_QDRANT_URL: http://qdrant:6333
       # Đặt RAG_API_KEY (trong shell hoặc file .env cạnh compose) để yêu cầu header X-API-Key.
       RAG_API_KEY: ${RAG_API_KEY:-}
+      # Tải model HuggingFace bằng HTTP thường; giao thức Xet có thể bị treo trên một số mạng.
+      HF_HUB_DISABLE_XET: "1"
     ports:
       - "8000:8000"
     volumes:
@@ -40,4 +60,5 @@ services:
 
 volumes:
   ollama:
+  qdrant:
   appdata:

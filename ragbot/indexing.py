@@ -1,14 +1,20 @@
-"""Dựng và cache FAISS index.
+"""Dựng và cache chỉ mục vector (Qdrant mặc định, FAISS để chạy nhanh không cần Docker).
 
-Embedding toàn bộ chunk bằng bge-m3 trên CPU rất chậm, nên index được lưu xuống đĩa cùng một
-"fingerprint" (hash nội dung PDF + tham số ảnh hưởng tới chunk/embedding). Lần chạy sau nếu
-fingerprint khớp thì nạp lại index, bỏ qua cả bước đọc PDF lẫn embedding.
+Embedding toàn bộ chunk bằng bge-m3 trên CPU rất chậm, nên chỉ mục được lưu xuống đĩa và dùng lại:
+
+  * Qdrant (`sync_store`): mỗi file PDF có một hash riêng (nội dung file + dòng của nó trong SOURCES.md +
+    tham số chunking/embedding). Mỗi lần khởi động chỉ file mới, đổi hoặc bị xoá mới phải xử lý; các file
+    còn lại giữ nguyên chunk và embedding đã có. Không dùng pickle.
+  * FAISS (`_load_or_build_faiss`): một fingerprint cho cả thư mục; đổi một file là dựng lại tất cả, và lưu
+    bằng pickle (chỉ nạp thư mục do chính ứng dụng ghi ra).
 """
 
 import hashlib
 import json
 import logging
 import shutil
+import time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,8 +23,10 @@ from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from ragbot import ingest
+from ragbot import corpus, ingest
 from ragbot.config import Settings
+from ragbot.errors import NoDocumentsError
+from ragbot.vectorstore import QdrantStore
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +117,103 @@ def _save_index(vectorstore: FAISS, index_dir: Path, fingerprint: str, chunks: i
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def load_or_build_index(settings: Settings, embeddings: Embeddings | None = None) -> FAISS:
+@dataclass
+class SyncReport:
+    """Kết quả một lần đồng bộ chỉ mục Qdrant với thư mục tài liệu."""
+
+    added: list[str] = field(default_factory=list)
+    updated: list[str] = field(default_factory=list)
+    removed: list[str] = field(default_factory=list)
+    unchanged: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)  # file không trích được chữ (PDF scan)
+    chunks_embedded: int = 0
+    chunks_total: int = 0
+    seconds: float = 0.0
+
+    def summary(self) -> str:
+        return (
+            f"thêm {len(self.added)}, cập nhật {len(self.updated)}, xoá {len(self.removed)}, "
+            f"giữ nguyên {len(self.unchanged)} file; embedding {self.chunks_embedded} chunk mới "
+            f"(tổng {self.chunks_total}) trong {self.seconds:.1f} giây"
+        )
+
+
+def file_hashes(settings: Settings, pdfs: list[Path]) -> dict[str, str]:
+    """Hash hiệu lực của từng file: đổi nội dung file, dòng của nó trong SOURCES.md (khi chunking="legal")
+    hoặc bất kỳ tham số ảnh hưởng chunk/embedding đều làm đổi hash, chỉ file bị ảnh hưởng mới nạp lại."""
+    params = (
+        f"schema={INDEX_SCHEMA_VERSION};embedding={settings.embedding_model};chunking={settings.chunking};"
+        f"chunk_size={settings.chunk_size};chunk_overlap={settings.chunk_overlap};"
+        f"pdf_loader={settings.pdf_loader}"
+    )
+    sources = corpus.load_sources(settings.sources_file) if settings.chunking == "legal" else {}
+    hashes: dict[str, str] = {}
+    for pdf in pdfs:
+        if pdf.name in hashes:
+            raise NoDocumentsError(
+                f"Hai file PDF cùng tên '{pdf.name}' trong {settings.docs_dir}: hãy đổi tên một file"
+            )
+        digest = hashlib.sha256(params.encode())
+        digest.update(_file_sha256(pdf).encode())
+        digest.update(repr(sources.get(pdf.name)).encode())
+        hashes[pdf.name] = digest.hexdigest()
+    return hashes
+
+
+def sync_store(settings: Settings, store: QdrantStore) -> SyncReport:
+    """Đưa kho Qdrant về đúng trạng thái của thư mục tài liệu, chỉ xử lý file thay đổi."""
+    started = time.perf_counter()
+    pdfs = ingest.list_pdfs(settings.docs_dir)
+    desired = file_hashes(settings, pdfs)
+    indexed = store.indexed_files()
+    report = SyncReport()
+
+    for name in sorted(set(indexed) - set(desired)):
+        store.delete_file(name)
+        report.removed.append(name)
+
+    by_name = {p.name: p for p in pdfs}
+    for name in sorted(desired):
+        if indexed.get(name) == desired[name]:
+            report.unchanged.append(name)
+            continue
+        try:
+            pages = ingest.load_documents(settings, only=[by_name[name]])
+        except NoDocumentsError:
+            logger.warning("Không trích được chữ từ %s (PDF scan?): bỏ qua", name)
+            store.delete_file(name)
+            report.skipped.append(name)
+            continue
+        chunks = ingest.split_documents(pages, settings)
+        logger.info("Đang tạo embedding cho %s (%d chunk)...", name, len(chunks))
+        report.chunks_embedded += store.replace_file(name, desired[name], chunks)
+        (report.updated if name in indexed else report.added).append(name)
+
+    report.chunks_total = store.count()
+    report.seconds = time.perf_counter() - started
+    if report.chunks_total == 0:
+        raise NoDocumentsError(
+            f"Đọc được các file PDF trong {settings.docs_dir} nhưng không trích xuất được văn bản. "
+            "Nếu là PDF scan, cần cài Tesseract (kèm gói ngôn ngữ 'vie') để OCR."
+        )
+    return report
+
+
+def load_or_build_index(settings: Settings, embeddings: Embeddings | None = None, client=None):
+    """Mở chỉ mục theo `settings.vector_store`, dựng hoặc cập nhật nếu tài liệu đã đổi.
+
+    Trả về đối tượng có `similarity_search_with_score(query, k)`; liệt kê chunk bằng `vectorstore.all_chunks`.
+    """
     embeddings = embeddings or create_embeddings(settings)
+    if settings.vector_store == "faiss":
+        return _load_or_build_faiss(settings, embeddings)
+    store = QdrantStore.open(settings, embeddings, client)
+    report = sync_store(settings, store)
+    logger.info("Chỉ mục Qdrant: %s", report.summary())
+    return store
+
+
+def _load_or_build_faiss(settings: Settings, embeddings: Embeddings) -> FAISS:
     fingerprint = compute_fingerprint(settings)
 
     cached = _try_load_cached(settings.index_dir, fingerprint, embeddings)

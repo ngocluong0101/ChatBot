@@ -14,7 +14,9 @@ def settings(tmp_path: Path) -> Settings:
     papers.mkdir()
     (papers / "a.pdf").write_bytes(b"alpha")
     (papers / "b.pdf").write_bytes(b"beta")
-    return Settings(papers_dir=papers, index_dir=tmp_path / "index")
+    # Các test dưới đây kiểm tra đường FAISS (pickle, một fingerprint cho cả thư mục); đường Qdrant ở
+    # tests/test_indexing_qdrant.py.
+    return Settings(papers_dir=papers, index_dir=tmp_path / "index", vector_store="faiss")
 
 
 @pytest.fixture

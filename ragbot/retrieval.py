@@ -6,13 +6,14 @@
 """
 
 import logging
+from typing import Any
 
-from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 
 from ragbot.config import Settings
 from ragbot.lexical import BM25Index
 from ragbot.rerank import Reranker
+from ragbot.vectorstore import all_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -36,24 +37,29 @@ def reciprocal_rank_fusion(rankings: list[list[DocKey]]) -> dict[DocKey, float]:
 
 
 class Retriever:
-    def __init__(self, settings: Settings, vectorstore: FAISS, reranker: Reranker | None = None) -> None:
+    def __init__(self, settings: Settings, vectorstore: Any, reranker: Reranker | None = None) -> None:
         self._settings = settings
         self._vectorstore = vectorstore
         self._reranker = reranker
         self._bm25: BM25Index | None = None
         self._chunks: list[Document] = []
         if settings.retrieval_mode == "hybrid":
-            self._chunks = list(vectorstore.docstore._dict.values())  # chưa có API công khai
+            self._chunks = all_chunks(vectorstore)
             self._bm25 = BM25Index(self._chunks)
 
-    def search(self, question: str) -> list[tuple[Document, float]]:
+    def _dense(self, question: str, k: int, source: str | None) -> list[tuple[Document, float]]:
+        # `source` (lọc theo văn bản) chỉ truyền khi được yêu cầu, để các kho không hỗ trợ vẫn dùng như cũ.
+        kwargs = {"source": source} if source else {}
+        results = self._vectorstore.similarity_search_with_score(question, k=k, **kwargs)
+        return [(d, float(sc)) for d, sc in results]
+
+    def search(self, question: str, source: str | None = None) -> list[tuple[Document, float]]:
+        """Top-k chunk; `source` giới hạn trong một văn bản (tên file PDF)."""
         s = self._settings
         if self._bm25 is None:
-            k = s.fetch_k if self._reranker else s.top_k
-            results = self._vectorstore.similarity_search_with_score(question, k=k)
-            candidates = [(d, float(sc)) for d, sc in results]
+            candidates = self._dense(question, s.fetch_k if self._reranker else s.top_k, source)
         else:
-            candidates = self._hybrid_candidates(question)
+            candidates = self._hybrid_candidates(question, source)
 
         if self._reranker is None:
             return candidates[: s.top_k]
@@ -64,14 +70,20 @@ class Retriever:
         )
         return [(d, float(sc)) for d, sc in reranked[: s.top_k]]
 
-    def _hybrid_candidates(self, question: str) -> list[tuple[Document, float]]:
+    def _lexical(self, question: str, source: str | None) -> list[Document]:
+        assert self._bm25 is not None
+        if source is None:
+            return [self._chunks[i] for i, _ in self._bm25.top(question, self._settings.fetch_k)]
+        ranked = (self._chunks[i] for i, _ in self._bm25.top(question, len(self._chunks)))
+        return [c for c in ranked if c.metadata.get("source") == source][: self._settings.fetch_k]
+
+    def _hybrid_candidates(self, question: str, source: str | None = None) -> list[tuple[Document, float]]:
         assert self._bm25 is not None
         s = self._settings
         pool = min(len(self._chunks), MAX_DENSE_POOL)
-        results = self._vectorstore.similarity_search_with_score(question, k=pool)
-        dense = [(d, float(sc)) for d, sc in results]
+        dense = self._dense(question, pool, source)
         dense_score = {_key(d): sc for d, sc in dense}
-        lexical = [self._chunks[i] for i, _ in self._bm25.top(question, s.fetch_k)]
+        lexical = self._lexical(question, source)
 
         fused = reciprocal_rank_fusion([[_key(d) for d, _ in dense[: s.fetch_k]], [_key(d) for d in lexical]])
         docs_by_key = {_key(d): d for d, _ in dense[: s.fetch_k]} | {_key(d): d for d in lexical}

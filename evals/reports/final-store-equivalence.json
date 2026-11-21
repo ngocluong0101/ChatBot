@@ -1,0 +1,30 @@
+{
+  "top_k": 5,
+  "dense": {
+    "queries": 215,
+    "identical_ranking": 1.0,
+    "same_top_k_set": 1.0,
+    "top1_agreement": 1.0,
+    "mean_overlap_at_k": 1.0,
+    "max_abs_score_difference": 4.043062157288446e-07,
+    "mismatches_shown": [],
+    "seconds": 62.3
+  },
+  "hybrid": {
+    "queries": 215,
+    "identical_ranking": 1.0,
+    "same_top_k_set": 1.0,
+    "top1_agreement": 1.0,
+    "mean_overlap_at_k": 1.0,
+    "max_abs_score_difference": 4.1681395668291543e-07,
+    "mismatches_shown": [],
+    "seconds": 68.3
+  },
+  "meta": {
+    "created_at": "2026-11-21T05:06:58+00:00",
+    "questions_file": "draft-001.jsonl",
+    "embedding_model": "BAAI/bge-m3",
+    "chunking": "legal",
+    "note": "Câu hỏi nháp chưa duyệt chỉ làm đầu vào truy vấn; phép so sánh không cần nhãn đúng/sai."
+  }
+}
