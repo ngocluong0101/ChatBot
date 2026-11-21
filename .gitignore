@@ -8,7 +8,10 @@ interview.md
 .index.tmp/
 .pytest_cache/
 .ruff_cache/
-evals/reports/
+# Báo cáo chạy nháp/dev không vào git; chỉ báo cáo công bố (tên bắt đầu bằng "final-") được commit
+evals/reports/*
+!evals/reports/final-*.json
+!evals/reports/final-*.md
 .index*/
 myCV/
 ROADMAP.md
