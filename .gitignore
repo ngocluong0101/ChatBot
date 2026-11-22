@@ -17,3 +17,5 @@ myCV/
 ROADMAP.md
 data/corpus/*.pdf
 CLAUDE.md
+evals/drafts/
+evals/judge_check*
