@@ -12,17 +12,6 @@ Hỏi bằng ngôn ngữ tự nhiên, nhận câu trả lời **kèm trích dẫ
 - **Cập nhật chỉ mục từng file** (Qdrant), có tracing (OpenTelemetry/Jaeger) và metrics (Prometheus).
 - **Ba cách dùng:** giao diện web (trả lời hiện dần), dòng lệnh, REST API.
 
-## Kết quả đo
-
-Mọi số lấy từ báo cáo thật trong [evals/reports/](evals/reports/).
-
-| Hạng mục | Kết quả |
-|---|---|
-| Bộ tài liệu | 8 văn bản pháp luật, 423 trang, 1881 đoạn |
-| Đổi **một** file → cập nhật chỉ mục | Qdrant 36,9 giây (file nhỏ), 149,7 giây (file lớn); FAISS dựng lại toàn bộ 804,5 giây |
-| Qdrant so với FAISS | Cùng thứ hạng top-5 trên 215/215 câu |
-| 20 người dùng đồng thời (RTX 4060 8 GB) | Thông lượng 0,23 → 0,74 yêu cầu/s, độ trễ p50 84,7 → 25,2 giây sau khi sửa nút thắt VRAM và cho chạy 2 slot |
-| Độ chính xác câu trả lời, ablation | **Chưa đo** (bộ câu hỏi chưa được duyệt tay) |
 
 Phương pháp, bảng đầy đủ và giới hạn: [docs/chi-tiet.md](docs/chi-tiet.md).
 
