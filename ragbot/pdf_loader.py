@@ -1,8 +1,11 @@
-"""Đọc PDF bằng pdfplumber: giữ thứ tự dòng, nhận diện bảng có đường kẻ và bỏ đầu/chân trang lặp.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-Mỗi trang là một Document. Bảng được đặt đúng vị trí của nó trong dòng chảy văn bản, bọc giữa hai
-dòng đánh dấu `TABLE_START` / `TABLE_END` để bước chia chunk nhận ra và tách thành chunk riêng.
-Bảng không có đường kẻ (căn bằng khoảng trắng) không được nhận diện và vẫn nằm trong văn bản thường.
+Đọc PDF bằng pdfplumber: giữ thứ tự dòng, nhận diện bảng có đường kẻ, bỏ đầu/chân trang lặp.
+
+Mỗi trang là một Document. Bảng nằm đúng vị trí trong dòng chảy văn bản, bọc giữa hai dòng đánh dấu
+`TABLE_START` / `TABLE_END` để bước chia chunk tách thành chunk riêng.
+Bảng không có đường kẻ không được nhận diện.
 """
 
 import logging
@@ -38,8 +41,8 @@ def table_to_markdown(rows: Sequence[Sequence[str | None]]) -> str | None:
         return None
     width = max(len(row) for row in cleaned)
     cleaned = [row + [""] * (width - len(row)) for row in cleaned]
-    # Bảng thật có ít nhất hai hàng với từ hai ô có chữ trở lên; chữ xếp lệch từng ô một là đoạn văn bị
-    # nhận nhầm vì nền tô màu hoặc khung trang trí.
+    # Bảng thật có từ hai hàng và hai ô có chữ; chữ xếp lệch từng ô là đoạn văn bị nhận nhầm vì nền
+    # tô màu/khung.
     if sum(sum(bool(cell) for cell in row) >= 2 for row in cleaned) < 2:
         return None
     keep = [i for i in range(width) if any(row[i] for row in cleaned)]
@@ -48,8 +51,7 @@ def table_to_markdown(rows: Sequence[Sequence[str | None]]) -> str | None:
     cleaned = [[row[i] for i in keep] for row in cleaned]
     header, body = cleaned[0], cleaned[1:]
     if re.fullmatch(r"\d+", header[0]):
-        # Hàng đầu bắt đầu bằng số thứ tự: bảng không có hàng tiêu đề (thường là bảng bổ sung vào phụ lục
-        # của luật khác), nên để hàng tiêu đề trống thay vì biến một hàng dữ liệu thành tiêu đề.
+        # Hàng đầu bắt đầu bằng số thứ tự: bảng không có hàng tiêu đề, nên để tiêu đề trống.
         header, body = [""] * len(header), cleaned
     lines = ["| " + " | ".join(header) + " |", "| " + " | ".join("---" for _ in keep) + " |"]
     lines += ["| " + " | ".join(row) + " |" for row in body]
@@ -103,8 +105,8 @@ FILL_MIN_SIZE = 3.0  # pt; hình tô màu mỏng hơn mức này là viền bả
 
 
 def _without_background_fills(page: Any) -> Any:
-    """Bỏ hình chữ nhật tô nền (không viền) có diện tích thật: Công báo tô nền các đoạn sửa đổi và
-    pdfplumber sẽ coi cạnh của chúng là đường kẻ bảng. Viền bảng vẽ bằng hình tô mỏng vẫn được giữ."""
+    """Bỏ hình chữ nhật tô nền không viền (Công báo tô nền đoạn sửa đổi, pdfplumber coi cạnh của chúng là
+    đường kẻ bảng). Viền bảng vẽ bằng hình tô mỏng vẫn giữ."""
 
     def keep(obj: dict[str, Any]) -> bool:
         if obj.get("object_type") != "rect" or obj.get("stroke") or not obj.get("fill"):

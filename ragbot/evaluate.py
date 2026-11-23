@@ -1,8 +1,11 @@
-"""Đánh giá RAG trên bộ câu hỏi `evals/dataset_legal.jsonl`.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Đánh giá RAG trên bộ câu hỏi `evals/dataset_legal.jsonl`.
 
 Ba nhóm chỉ số:
   * Retrieval  : hit@k, MRR, recall nguồn  (chỉ cần embedding, không cần Ollama)
-  * Ngưỡng     : quét score_threshold để thấy ngưỡng nào tách được câu có/không có đáp án
+  * Ngưỡng     : quét score_threshold để tìm ngưỡng tách câu có/không có đáp án
   * Generation : đúng/sai theo từ khóa bắt buộc, từ chối đúng, citation đúng, latency,
                  và (tùy chọn) faithfulness do LLM-judge chấm
 
@@ -12,13 +15,9 @@ Cách chạy:
     python -m ragbot.evaluate --mode full --set llm_model=qwen2.5:7b-instruct --set top_k=3
     python -m ragbot.evaluate --mode full --judge-model qwen2.5:7b-instruct
 
-Quy trình cho bộ câu hỏi có chia dev/test (evals/dataset_legal.jsonl), để ngưỡng từ chối không bị chọn
-trên chính tập dùng để báo cáo:
-    1) python -m ragbot.evaluate --dataset evals/dataset_legal.jsonl --split dev --mode retrieval \
-           --out evals/reports/dev-x.json            # quét ngưỡng CHỈ trên dev
-    2) python -m ragbot.evaluate --dataset evals/dataset_legal.jsonl --split test --mode full \
-           --threshold-from evals/reports/dev-x.json --out evals/reports/final-x-test.json
-Chỉ câu có verified=true (đã duyệt tay) được dùng; --include-unverified chỉ để chạy thử quy trình.
+Với bộ chia dev/test: quét ngưỡng CHỈ trên dev (`--split dev --mode retrieval`), rồi chạy test bằng
+`--split test --mode full --threshold-from <báo cáo dev>`. Chỉ câu verified=true được dùng
+(`--include-unverified` chỉ để chạy thử).
 """
 
 import argparse
@@ -155,9 +154,9 @@ def default_split(examples: Sequence[Example]) -> str:
 def select_examples(
     examples: Sequence[Example], split: str, include_unverified: bool = False, limit: int | None = None
 ) -> list[Example]:
-    """Chỉ lấy câu đã duyệt tay (trừ khi chạy thử quy trình) và đúng split ("all" = không lọc split).
+    """Chỉ lấy câu đã duyệt tay (trừ khi chạy thử) và đúng split ("all" = không lọc).
 
-    `limit`: lấy mẫu ngẫu nhiên (seed cố định, giữ thứ tự gốc) chạy thử nhanh; không công bố số liệu.
+    `limit`: lấy mẫu ngẫu nhiên (seed cố định) để chạy thử nhanh; không công bố số liệu.
     """
     chosen = [e for e in examples if include_unverified or e.verified]
     if split != "all":
@@ -195,10 +194,9 @@ EDGE_TOLERANCE = 8  # ký tự
 
 
 def _evidence_in(content: str, snippet: str) -> bool:
-    """Chunk chứa bằng chứng. Khớp nguyên văn, hoặc khớp phần lớn bằng chứng ở sát mép chunk.
+    """Chunk chứa bằng chứng: khớp nguyên văn, hoặc khớp phần lớn bằng chứng ở sát mép chunk.
 
-    Cách chia theo độ dài có thể cắt ngang một câu bằng chứng giữa hai chunk; khi đó mỗi chunk giữ một
-    phần ở mép của nó. Không nới lỏng thì ablation "chia theo độ dài" bị phạt oan chỉ vì ranh giới cắt.
+    Chia theo độ dài có thể cắt ngang câu bằng chứng; không nới lỏng thì ablation "fixed" bị phạt oan.
     """
     if snippet in content:
         return True
@@ -288,8 +286,7 @@ def evaluate_retrieval(
             **_meta_fields(ex),
         }
         try:
-            # Truy hồi bằng câu độc lập (đã viết lại nếu cần) đúng như lúc chạy thật; trước đây bước này
-            # bị bỏ qua nên số đo của câu không dấu không phản ánh tác dụng của việc viết lại.
+            # Truy hồi bằng câu độc lập (đã viết lại nếu cần) như lúc chạy thật.
             question = pipeline.standalone_question(ex.question)
         except RagError as exc:
             record["error"] = str(exc)
@@ -353,9 +350,9 @@ def summarize_retrieval(records: Sequence[dict[str, Any]], top_k: int) -> dict[s
 def sweep_thresholds(
     records: Sequence[dict[str, Any]], start: float = 0.0, stop: float = 1.0, step: float = 0.02
 ) -> dict[str, Any]:
-    """Với mỗi ngưỡng: bao nhiêu câu có đáp án còn giữ được chunk, bao nhiêu câu không có đáp án bị chặn.
+    """Với mỗi ngưỡng: số câu có đáp án còn giữ được chunk, số câu không có đáp án bị chặn.
 
-    Quyết định "có chunk nào đạt ngưỡng" chỉ phụ thuộc điểm top-1. Đây là cổng chặn TRƯỚC khi gọi LLM.
+    Cổng chặn TRƯỚC khi gọi LLM chỉ phụ thuộc điểm top-1.
     """
     scored = [r for r in records if r.get("top1_score") is not None]
     answerable = [r["top1_score"] for r in scored if r["answerable"]]
@@ -673,10 +670,9 @@ THRESHOLD_KEYS = ("rerank_threshold", "score_threshold")
 
 
 def threshold_from_report(path: Path, settings: Settings) -> tuple[str, float, dict[str, Any]]:
-    """Ngưỡng tốt nhất do báo cáo DEV chọn, để áp dụng nguyên xi cho test.
+    """Ngưỡng tốt nhất do báo cáo DEV chọn, để áp nguyên xi cho test.
 
-    Từ chối báo cáo không phải dev, hoặc cấu hình reranker khác (ngưỡng cosine và ngưỡng reranker không
-    cùng thang điểm nên không thể mượn của nhau).
+    Từ chối báo cáo không phải dev hoặc khác cấu hình reranker (hai thang điểm không mượn nhau được).
     """
     report = json.loads(path.read_text(encoding="utf-8"))
     meta = report["meta"]

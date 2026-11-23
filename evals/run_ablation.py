@@ -1,14 +1,16 @@
-"""Chạy ablation 5 cấu hình, mỗi lần đổi MỘT thứ, cùng LLM và cùng corpus.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Chạy ablation 5 cấu hình, mỗi lần đổi MỘT thứ, cùng LLM và corpus.
 
     python -m evals.run_ablation --dry-run                      # chỉ in các lệnh sẽ chạy
     python -m evals.run_ablation                                # chạy thật (chỉ dùng câu đã duyệt tay)
     python -m evals.run_ablation --include-unverified           # chạy THỬ quy trình trên câu nháp
     python -m evals.run_ablation --only 03,04 --skip-existing   # chạy tiếp những cấu hình còn thiếu
 
-Mỗi cấu hình gồm hai lần chạy `ragbot.evaluate`:
-  1) dev  : chỉ đo retrieval và quét ngưỡng từ chối trên dev  -> evals/reports/dev-<tên>.json
-  2) test : chạy đầy đủ trên test, dùng NGUYÊN ngưỡng chọn ở bước 1 -> evals/reports/final-<tên>-test.json
-Chạy thử với câu chưa duyệt ghi ra `draft-*` thay vì `final-*` để không bao giờ lọt vào git/README.
+Mỗi cấu hình chạy `ragbot.evaluate` hai lần: dev (retrieval + quét ngưỡng, ghi evals/reports/dev-<tên>.json)
+rồi test (đầy đủ, dùng nguyên ngưỡng từ dev, ghi evals/reports/final-<tên>-test.json).
+Chạy thử ghi ra `draft-*`.
 """
 
 import argparse

@@ -1,8 +1,10 @@
-"""Truy hồi chunk: dense (vector) | hybrid (vector + BM25, gộp bằng RRF), tùy chọn rerank.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-Điểm trả về (`score`) là điểm dùng để áp ngưỡng "có đủ liên quan không":
-  * có reranker  -> xác suất do cross-encoder chấm (thang [0, 1])
-  * không có     -> cosine similarity của vector
+Truy hồi chunk: dense (vector) | hybrid (vector + BM25, gộp bằng RRF), tùy chọn rerank.
+
+`score` dùng để áp ngưỡng: xác suất của cross-encoder (thang [0, 1]) nếu có reranker,
+ngược lại là cosine similarity.
 """
 
 import logging
@@ -39,10 +41,11 @@ def reciprocal_rank_fusion(rankings: list[list[DocKey]]) -> dict[DocKey, float]:
 
 
 class Retriever:
-    """Một Retriever dùng chung cho mọi luồng của API. Embedding (HuggingFace), cross-encoder và Qdrant nhúng
-    không được thiết kế để gọi đồng thời từ nhiều thread (tokenizer Rust báo "Already borrowed", Qdrant nhúng
-    không có khóa nội bộ), nên toàn bộ phần tính toán của `search` đi qua một khóa. Phần chậm của một lượt hỏi
-    là LLM, nằm ngoài khóa này nên các lượt vẫn chạy chồng lên nhau (`Settings.max_concurrent_requests`)."""
+    """Dùng chung cho mọi luồng của API.
+
+    Embedding, cross-encoder và Qdrant nhúng không an toàn khi gọi đồng thời, nên phần tính toán của `search`
+    đi qua một khóa; LLM nằm ngoài khóa nên các lượt vẫn chạy chồng nhau (`Settings.max_concurrent_requests`).
+    """
 
     def __init__(
         self,

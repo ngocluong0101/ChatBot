@@ -1,12 +1,14 @@
-"""Kho vector Qdrant, với cùng giao diện tìm kiếm mà `Retriever` đã dùng với FAISS.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-Khác FAISS (một khối nhị phân lưu bằng pickle, đổi một file là dựng lại tất cả), Qdrant lưu mỗi chunk là một
-"point" có payload đầy đủ metadata, nên có thể:
-  * thêm / xoá / thay thế chunk của MỘT file mà không đụng tới các file khác (xem `indexing.sync_store`);
+Kho vector Qdrant, cùng giao diện tìm kiếm mà `Retriever` đã dùng với FAISS.
+
+Mỗi chunk là một point có payload đầy đủ metadata, nên có thể:
+  * thêm / xoá / thay chunk của MỘT file mà không đụng file khác (xem `indexing.sync_store`);
   * lọc theo văn bản ngay trong truy vấn (`similarity_search_with_score(..., source="file.pdf")`);
   * đọc lại chunk (để dựng BM25) mà không cần pickle.
 
-Điểm trả về là cosine similarity (embedding đã chuẩn hóa), cùng ý nghĩa với điểm FAISS nên ngưỡng không đổi.
+Điểm trả về là cosine similarity (embedding đã chuẩn hóa), cùng thang với FAISS nên ngưỡng không đổi.
 """
 
 import hashlib
@@ -121,9 +123,8 @@ class QdrantStore:
         )
 
     def replace_file(self, source: str, file_hash: str, chunks: Sequence[Document]) -> int:
-        """Thay toàn bộ chunk của `source`. Embedding được tính TRƯỚC khi xoá chunk cũ, để lỗi giữa chừng
-        (ví dụ hết bộ nhớ) không làm mất chunk cũ; nếu bị ngắt sau khi xoá, lần đồng bộ sau thấy file chưa có
-        trong kho và làm lại."""
+        """Thay toàn bộ chunk của `source`. Embedding tính TRƯỚC khi xoá chunk cũ; nếu bị ngắt sau khi
+        xoá, lần đồng bộ sau thấy file chưa có trong kho và làm lại."""
         from qdrant_client import models
 
         vectors = self._embed([c.page_content for c in chunks])
@@ -171,8 +172,8 @@ class QdrantStore:
                 return points
 
     def indexed_files(self) -> dict[str, str | None]:
-        """{tên file: hash đã dùng khi nạp}. Giá trị None = các chunk của file mang hash không thống nhất
-        (ghi dở), buộc nạp lại."""
+        """{tên file: hash đã dùng khi nạp}; None = hash các chunk của file không thống nhất (ghi dở),
+        buộc nạp lại."""
         files: dict[str, str | None] = {}
         for point in self._scroll(["source", "file_hash"]):
             source, file_hash = point.payload["source"], point.payload.get("file_hash")

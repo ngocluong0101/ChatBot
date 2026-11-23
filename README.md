@@ -443,3 +443,7 @@ Các bài kiểm thử không cần tải mô hình và không cần Ollama.
 - Thử vLLM / mô hình lượng tử hóa, gom nhiều truy vấn vào một lần chạy embedding/rerank, và lặp lại các lần đo để có khoảng dao động.
 - Lọc theo hiệu lực của văn bản và dùng đồng thời câu hỏi gốc với câu đã viết lại khi tìm kiếm.
 - Lưu phiên hội thoại phía máy chủ và xác thực theo người dùng.
+
+---
+
+@author: Ngoc Luong <ngocluongg0101@gmail.com>

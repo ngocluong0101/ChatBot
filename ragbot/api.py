@@ -1,12 +1,14 @@
-"""API HTTP (FastAPI): /chat, /chat/stream (SSE), /health và giao diện web ở /.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+API HTTP (FastAPI): /chat, /chat/stream (SSE), /health và giao diện web ở /.
 
 Chạy:  uvicorn ragbot.api:app --host 0.0.0.0 --port 8000
 
-Đồng thời: mỗi lượt hỏi phải giành một "slot" của semaphore (`RAG_MAX_CONCURRENT_REQUESTS`, nên bằng
-OLLAMA_NUM_PARALLEL). Chờ quá `RAG_QUEUE_TIMEOUT_SECONDS` thì trả 503 kèm Retry-After thay vì để hàng đợi
-dài vô hạn. Embedding/reranker/Qdrant nhúng không an toàn khi gọi đồng thời nên phần truy hồi vẫn xếp hàng
-qua một khóa trong `Retriever`; phần chậm nhất, LLM, chạy chồng lên nhau tới số slot cho phép.
-Quan sát: /metrics (Prometheus) và tracing OpenTelemetry, xem ragbot/telemetry.py.
+Mỗi lượt hỏi giành một slot semaphore (`RAG_MAX_CONCURRENT_REQUESTS`, nên bằng OLLAMA_NUM_PARALLEL);
+chờ quá `RAG_QUEUE_TIMEOUT_SECONDS` thì trả 503 + Retry-After. Truy hồi xếp hàng qua một khóa trong
+`Retriever`, còn LLM chạy chồng lên nhau. Quan sát: /metrics (Prometheus), tracing OpenTelemetry
+(ragbot/telemetry.py).
 """
 
 import json

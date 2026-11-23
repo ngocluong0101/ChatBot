@@ -1,17 +1,18 @@
-"""Chia văn bản pháp luật Việt Nam thành chunk theo cấu trúc Chương / Mục / Điều / Khoản / Phụ lục.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-Quy trình cho MỘT văn bản (gộp mọi trang, vì một Điều thường kéo dài qua nhiều trang):
-  1. `tokenize_pages`: tách thành các dòng văn bản và các khối bảng, nhớ số trang của từng dòng.
+Chia văn bản pháp luật Việt Nam thành chunk theo Chương / Mục / Điều / Khoản / Phụ lục.
+
+Quy trình cho MỘT văn bản (gộp mọi trang vì một Điều thường kéo dài qua nhiều trang):
+  1. `tokenize_pages`: tách dòng văn bản và khối bảng, nhớ số trang.
   2. `parse_units`: nhận diện tiêu đề Chương/Mục/Điều/Phụ lục, gom nội dung vào từng đơn vị.
-  3. `chunk_unit`: mỗi Điều là một chunk; Điều dài quá `chunk_size` thì tách theo Khoản (rồi theo điểm a),
-     b), rồi theo độ dài). Bảng thành chunk riêng. Mọi chunk lặp lại tên văn bản + Chương + tiêu đề Điều
-     để embedding/BM25/reranker biết chunk thuộc đâu (nhiều văn bản có Điều trùng số).
+  3. `chunk_unit`: mỗi Điều một chunk; Điều quá `chunk_size` thì tách theo Khoản (rồi điểm a), b), rồi
+     độ dài). Bảng thành chunk riêng. Mọi chunk lặp lại tên văn bản + Chương + tiêu đề Điều.
 
 Văn bản không có cấu trúc "Điều" trả về None để bên gọi rơi về cách chia cũ.
 
-Giới hạn đã biết: bảng không có đường kẻ không được nhận diện (xem pdf_loader.py); bảng kéo dài qua
-nhiều trang thành nhiều chunk riêng; văn bản sửa đổi có trích nguyên văn Điều cũ trong ngoặc kép có thể
-bị nhận diện sai ranh giới Khoản (số Điều vẫn đúng vì chỉ nhận dòng bắt đầu bằng "Điều N.").
+Giới hạn: bảng không có đường kẻ không được nhận diện; bảng nhiều trang thành nhiều chunk; văn bản sửa đổi
+trích nguyên văn Điều cũ trong ngoặc kép có thể bị nhận sai ranh giới Khoản.
 """
 
 import logging
@@ -223,8 +224,10 @@ def parse_units(tokens: list[Tok]) -> list[Unit]:
 
 
 def _continues_dieu_title(tok: Tok) -> bool:
-    """Dòng ngay sau "Điều N. ..." là phần tiếp của tiêu đề: bắt đầu bằng chữ thường hoặc chữ số, không phải
-    dấu hiệu Khoản/điểm, và không kết thúc bằng dấu câu (tiêu đề Điều không có dấu chấm cuối)."""
+    """Dòng sau "Điều N. ..." là phần tiếp của tiêu đề.
+
+    Bắt đầu bằng chữ thường hoặc chữ số, không phải dấu hiệu Khoản/điểm, không kết thúc bằng dấu câu.
+    """
     text = tok.text
     return (
         tok.kind == "text"

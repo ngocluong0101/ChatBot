@@ -1,14 +1,12 @@
-"""Đo thời gian dựng và cập nhật chỉ mục: Qdrant (cập nhật từng file) so với FAISS (dựng lại toàn bộ).
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Đo thời gian dựng và cập nhật chỉ mục: Qdrant (cập nhật từng file) so với FAISS (dựng lại toàn bộ).
 
     python -m evals.bench_index --out evals/reports/final-index-timing.json
 
-Các bước (embedding thật, bge-m3):
-  1. Qdrant dựng lần đầu từ data/corpus  (chỉ mục được GIỮ ở .index-qdrant để các công cụ khác dùng lại).
-  2. Qdrant khởi động lại khi không có gì đổi (chỉ tính hash và đọc kho).
-  3. Sửa MỘT file nhỏ rồi một file lớn, trên BẢN SAO của thư mục tài liệu và chỉ mục (file gốc không bị đụng).
-  4. Xoá một file khỏi bản sao.
-  5. FAISS dựng toàn bộ từ đầu: đây cũng chính là chi phí của FAISS cho MỌI thay đổi, dù chỉ một file.
-Thời gian tải model embedding được tính riêng và loại khỏi các bước trên.
+Các bước: Qdrant dựng lần đầu, khởi động lại khi không đổi, sửa một file nhỏ rồi một file lớn và xoá một file
+(trên bản sao), rồi FAISS dựng lại toàn bộ. Thời gian tải model embedding được tính riêng.
 """
 
 import argparse

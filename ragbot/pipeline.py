@@ -1,4 +1,8 @@
-"""Pipeline RAG: retrieval có ngưỡng điểm -> prompt -> LLM -> câu trả lời kèm nguồn."""
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Pipeline RAG: retrieval có ngưỡng điểm -> prompt -> LLM -> câu trả lời kèm nguồn.
+"""
 
 import logging
 import re
@@ -172,8 +176,7 @@ def format_context(docs: list[Document]) -> str:
 def select_sources(hits: list[tuple[Document, float]], margin: float) -> tuple[Source, ...]:
     """Nguồn do code tạo từ metadata thật của chunk được truy hồi, không để LLM tự bịa.
 
-    Chỉ giữ chunk có điểm sát top-1: chunk đứng sau chỉ là "ứng viên phụ" được đưa vào context,
-    liệt kê hết sẽ khiến người dùng tưởng câu trả lời lấy từ cả những file không liên quan.
+    Chỉ giữ chunk có điểm sát top-1; các chunk sau chỉ là ứng viên phụ trong context.
     """
     if not hits:
         return ()
@@ -256,8 +259,7 @@ class RagPipeline:
             self._retriever.telemetry = value
 
     def chunks(self) -> list[Document]:
-        """Mọi chunk đang nằm trong index (dùng cho đánh giá/kiểm tra). Chỉ mục không đổi khi đang chạy nên
-        chỉ đọc một lần (với Qdrant đây là một lượt đọc toàn bộ, không nên lặp ở mỗi lần gọi /health)."""
+        """Mọi chunk trong index, đọc một lần (với Qdrant là đọc toàn bộ, đừng gọi lặp ở /health)."""
         if self._chunk_cache is None:
             self._chunk_cache = all_chunks(self._vectorstore)
         return list(self._chunk_cache)
@@ -342,8 +344,10 @@ class RagPipeline:
             return answer
 
     def ask_stream(self, question: str, history: Sequence[Turn] = ()) -> Iterator[StreamEvent]:
-        """Như `ask` nhưng phát từng đoạn. Sự kiện "done" mang Answer cuối cùng (có nguồn, đã chuẩn hóa
-        lời từ chối): client nên dùng nó thay cho phần text đã ghép từ các sự kiện "token"."""
+        """Như `ask` nhưng phát từng đoạn.
+
+        Sự kiện "done" mang Answer cuối cùng (có nguồn, đã chuẩn hóa lời từ chối): client nên dùng nó.
+        """
         with self.telemetry.stage("ask", **{"rag.question": question, "rag.stream": True}) as root:
             standalone, hits = self._prepare(question, history, root)
             root.set("rag.standalone_question", standalone)

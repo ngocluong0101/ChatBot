@@ -1,4 +1,8 @@
-"""Tạo PDF tối giản (chữ Helvetica ASCII + đường kẻ) để test bộ đọc PDF mà không cần file thật."""
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Tạo PDF tối giản (chữ Helvetica ASCII + đường kẻ) để test bộ đọc PDF mà không cần file thật.
+"""
 
 
 def build_pdf(pages):

@@ -1,11 +1,13 @@
-"""Thống kê corpus sau khi đọc và chia chunk (không cần embedding hay Ollama).
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Thống kê corpus sau khi đọc và chia chunk (không cần embedding hay Ollama).
 
     python -m ragbot.stats --set docs_dir=data/corpus --set chunking=legal --set pdf_loader=pdfplumber
     python -m ragbot.stats ... --out evals/reports/corpus-stats.json
 
-Ngoài số văn bản / trang / chunk / độ dài chunk trung bình, báo cáo còn liệt kê những dấu hiệu trích
-xuất sai để người dùng kiểm tra tay: văn bản không nhận ra cấu trúc Điều, Điều bị thiếu trong dãy số,
-văn bản chưa có trong SOURCES.md.
+Ngoài số văn bản / trang / chunk / độ dài trung bình, liệt kê dấu hiệu trích xuất sai để kiểm tra tay: văn bản
+không nhận ra cấu trúc Điều, Điều bị thiếu trong dãy số, văn bản chưa có trong SOURCES.md.
 """
 
 import argparse
@@ -32,8 +34,7 @@ def _dieu_numbers(chunks: Sequence[Document]) -> list[int]:
     return sorted(numbers)
 
 
-# Điều cuối của một văn bản đầy đủ thường là điều khoản thi hành. Nếu không phải, PDF có thể chỉ là một phần
-# (ví dụ Công báo đăng nghị định qua hai số và file chỉ có số đầu).
+# Điều cuối của văn bản đầy đủ thường là điều khoản thi hành; nếu không, PDF có thể bị cắt dở.
 _ENDING_WORDS = (
     "thi hành",
     "hiệu lực",
@@ -58,8 +59,8 @@ def compute_stats(
     known: dict[str, Any],
     all_files: Sequence[str] = (),
 ) -> dict[str, Any]:
-    """`known`: các tên file có trong SOURCES.md; `all_files`: mọi PDF trong thư mục, để phát hiện file
-    không trích được chữ (không có trang nào nên không xuất hiện trong `pages`)."""
+    """`known`: tên file có trong SOURCES.md; `all_files`: mọi PDF trong thư mục (để phát hiện
+    file không trích được chữ)."""
     lengths = [len(c.page_content) for c in chunks]
     files = sorted({d.metadata.get("source", "?") for d in pages} | set(all_files))
     documents = []

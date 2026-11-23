@@ -1,16 +1,16 @@
-"""Duyệt tay câu hỏi nháp, rồi gộp câu đã duyệt vào bộ đánh giá chính thức.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Duyệt tay câu hỏi nháp, rồi gộp câu đã duyệt vào bộ đánh giá chính thức.
 
     python -m evals.review --draft evals/drafts/draft-001.jsonl      # duyệt từng câu
     python -m evals.review --draft evals/drafts/draft-001.jsonl --stats
     python -m evals.review --finalize     # gộp câu đã duyệt vào evals/dataset_legal.jsonl
 
-Mỗi quyết định được ghi xuống file ngay: thoát giữa chừng (q hoặc Ctrl-C) rồi chạy lại là tiếp tục đúng chỗ.
-Phím: y = dùng được | n = loại | e = sửa câu hỏi / đáp án | g = tìm trong tài liệu | s = để sau | q = thoát.
-
-Khi duyệt, kiểm tra:
-  * Câu có đáp án: câu hỏi tự đủ nghĩa; đáp án (must_include) và bằng chứng (evidence) đúng với đoạn gốc;
-    không có cách trả lời đúng nào khác mà must_include sẽ chấm sai (thêm cách viết khác bằng phím e).
-  * Câu KHÔNG có đáp án (near_domain, off_topic): tài liệu thật sự không trả lời được. Dùng phím g để tìm.
+Mỗi quyết định được ghi ngay, thoát giữa chừng rồi chạy lại là tiếp tục.
+Phím: y = dùng | n = loại | e = sửa | g = tìm trong tài liệu | s = để sau | q = thoát.
+Cần kiểm tra: câu hỏi tự đủ nghĩa; must_include và evidence đúng với đoạn gốc; với câu KHÔNG có đáp án
+(near_domain, off_topic) thì tài liệu thật sự không trả lời được (dùng phím g để tìm).
 """
 
 import argparse

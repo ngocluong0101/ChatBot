@@ -1,4 +1,8 @@
-"""Giao diện dòng lệnh."""
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Giao diện dòng lệnh.
+"""
 
 import logging
 import sys

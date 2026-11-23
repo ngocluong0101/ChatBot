@@ -1,4 +1,8 @@
-"""Reranker cross-encoder: chấm lại độ liên quan của (câu hỏi, chunk) chính xác hơn bi-encoder."""
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Reranker cross-encoder: chấm lại độ liên quan của (câu hỏi, chunk) chính xác hơn bi-encoder.
+"""
 
 import logging
 from collections.abc import Sequence

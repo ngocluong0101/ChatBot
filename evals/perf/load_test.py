@@ -1,18 +1,15 @@
-"""Load test cho API chatbot: N người dùng đồng thời, mỗi người hỏi liên tiếp (closed loop, không nghỉ).
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Load test cho API chatbot: N người dùng đồng thời, mỗi người hỏi liên tiếp (closed loop).
 
     # chạy API ở terminal khác (uvicorn ragbot.api:app --port 8000), rồi:
-    python -m evals.perf.load_test --label baseline --users 1,5,10,20 \
-        --out evals/reports/final-perf-baseline.json
+    python -m evals.perf.load_test --label baseline --users 1,5,10,20
 
-Đo qua HTTP đúng như người dùng thật (endpoint /chat/stream để có thời gian-tới-token-đầu, TTFT):
-  * độ trễ trọn yêu cầu và TTFT: p50 / p95 / p99, trung bình, lớn nhất
-  * thông lượng (yêu cầu hoàn tất / giây), tỉ lệ lỗi và lý do
-  * VRAM và mức dùng GPU lấy mẫu mỗi giây bằng `nvidia-smi` trong lúc chạy
-
-Mọi mức người dùng dùng CÙNG một dãy câu hỏi (cố định theo seed) từ evals/perf/questions.jsonl,
-nên các cấu hình so sánh được với nhau. Số yêu cầu mỗi người:
+Đo qua HTTP endpoint /chat/stream: độ trễ và TTFT (p50/p95/p99), thông lượng, tỉ lệ lỗi, VRAM/GPU (nvidia-smi
+mỗi giây). Mọi mức người dùng dùng cùng dãy câu hỏi (cố định theo seed) từ evals/perf/questions.jsonl, lấy từ
+bản nháp chưa duyệt vì chỉ đo thời gian, không đo độ đúng. Số yêu cầu mỗi người:
 max(`--min-per-user`, ceil(`--min-total` / người dùng)).
-Bộ câu hỏi lấy mẫu từ bản nháp (chưa duyệt) vì ở đây chỉ đo thời gian, không đo độ đúng.
 """
 
 import argparse

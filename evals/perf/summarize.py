@@ -1,4 +1,7 @@
-"""Bảng hiệu năng markdown từ các báo cáo load test (mọi số lấy từ file báo cáo).
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Bảng hiệu năng markdown từ các báo cáo load test (mọi số lấy từ file báo cáo).
 
 python -m evals.perf.summarize evals/reports/final-perf-*.json --readme README.md
 """

@@ -1,4 +1,7 @@
-"""Cấu hình ứng dụng, đọc từ biến môi trường / file `.env` (tiền tố `RAG_`).
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Cấu hình ứng dụng, đọc từ biến môi trường / file `.env` (tiền tố `RAG_`).
 
 Ví dụ trong `.env`:
     RAG_LLM_MODEL=qwen2.5:7b-instruct
@@ -25,23 +28,17 @@ class Settings(BaseSettings):
         validate_default=True,
     )
 
-    # Dữ liệu. Đường dẫn tương đối được hiểu là tương đối so với thư mục gốc dự án,
-    # để chạy từ thư mục nào cũng được.
-    # Thư mục PDF (RAG_DOCS_DIR): bộ văn bản pháp luật. PDF không nằm trong repo (xem data/corpus/README.md).
+    # Đường dẫn tương đối tính từ thư mục gốc dự án. PDF không nằm trong repo (xem data/corpus/README.md).
     docs_dir: Path = Path("data/corpus")
     index_dir: Path = Path(".index")
-    # Bảng tra cứu tên/số hiệu/ngày của từng văn bản (xem data/SOURCES.md). Không có file thì
-    # tên văn bản được suy ra từ tên file.
+    # Bảng tên/số hiệu văn bản (data/SOURCES.md); không có file thì lấy tên từ tên file.
     sources_file: Path = Path("data/SOURCES.md")
-    # Kho vector. "qdrant" (mặc định): hỗ trợ cập nhật từng file, không dùng pickle. "faiss": chạy nhanh,
-    # không cần Docker, lưu bằng pickle và phải dựng lại toàn bộ khi đổi một file.
+    # Kho vector: "qdrant" (cập nhật từng file) hoặc "faiss" (nhanh, pickle, dựng lại toàn bộ khi đổi file).
     vector_store: Literal["qdrant", "faiss"] = "qdrant"
-    # Qdrant: "" = nhúng ngay trong tiến trình, lưu ở <index_dir>/qdrant (không cần server, chỉ một tiến
-    # trình mở được cùng lúc); "http://host:6333" = server (Docker Compose); ":memory:" = trong RAM (test).
+    # Qdrant: "" = nhúng (<index_dir>/qdrant, một tiến trình), URL = server, ":memory:" = test.
     qdrant_url: str = ""
     qdrant_collection: str = "ragbot"
-    # "pdfplumber": giữ thứ tự dòng, nhận diện bảng có đường kẻ; cần cho chunking="legal".
-    # "unstructured": đọc theo trang, không nhận diện bảng (tài liệu thường, không phải văn bản luật).
+    # "pdfplumber": giữ thứ tự dòng, nhận diện bảng (cần cho "legal"); "unstructured": đọc theo trang.
     pdf_loader: Literal["unstructured", "pdfplumber"] = "pdfplumber"
 
     # Model
@@ -53,10 +50,8 @@ class Settings(BaseSettings):
     num_ctx: int = 4096
     temperature: float = 0.0
 
-    # Chunking. "section": tách theo mục đánh số "1., 2., ..." (kèm tiêu đề tài liệu);
-    # "fixed": cắt theo độ dài; "legal": văn bản pháp luật, tách theo Chương/Mục/Điều/Khoản/Phụ lục,
-    # bảng thành chunk riêng; văn bản không có cấu trúc "Điều" rơi về "section" rồi "fixed".
-    # chunk_size/overlap dùng cho "fixed" và cho mục/khoản dài quá chunk_size.
+    # Chunking: "legal" (Chương/Mục/Điều/Khoản, bảng riêng; không có "Điều" thì rơi về "section" rồi "fixed"),
+    # "section" (mục "1., 2."), "fixed" (theo độ dài). chunk_size/overlap áp cho "fixed" và đơn vị quá dài.
     chunking: Literal["fixed", "section", "legal"] = "legal"
     chunk_size: int = 1200
     chunk_overlap: int = 200
@@ -64,38 +59,29 @@ class Settings(BaseSettings):
     # Retrieval. "hybrid" = vector + BM25 (bỏ dấu) gộp bằng RRF; mỗi nhánh lấy fetch_k ứng viên.
     retrieval_mode: Literal["dense", "hybrid"] = "hybrid"
     fetch_k: int = 10
-    # Reranker cross-encoder (rỗng = tắt). Khi bật, rerank_threshold thay cho score_threshold.
-    # 0.20 nằm giữa câu không-có-đáp-án cao nhất bị chặn (0.154) và câu hợp lệ thấp nhất (không tính
-    # câu không dấu) là 0.257 trên bộ eval; xem evals/after-step4.json.
+    # Reranker cross-encoder (rỗng = tắt); khi bật, rerank_threshold thay score_threshold.
+    # 0.20 nằm giữa câu không-đáp-án cao nhất (0.154) và câu hợp lệ thấp nhất (0.257): evals/after-step4.json.
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
     rerank_threshold: float = 0.20
     top_k: int = 5
-    # Ngưỡng cosine similarity. Dưới ngưỡng => coi như tài liệu không có thông tin.
-    # Hiệu chỉnh thủ công trên 12 câu hỏi: câu trong phạm vi có top-1 >= 0.57, câu ngoài chủ đề
-    # <= 0.37, câu "gần chủ đề nhưng tài liệu không có" tới ~0.50.
+    # Ngưỡng cosine: dưới ngưỡng coi như tài liệu không có thông tin (chỉnh tay trên 12 câu hỏi).
     score_threshold: float = 0.50
     # Chỉ hiển thị nguồn của chunk có điểm >= top-1 trừ biên độ này.
     source_score_margin: float = 0.08
 
-    # Hội thoại. Viết lại câu hỏi nối tiếp ("còn trường hợp nghỉ ốm?") và câu hỏi gõ không dấu
-    # thành câu độc lập, có dấu trước khi truy hồi. Chỉ tốn thêm một lượt gọi LLM khi cần.
+    # Hội thoại: viết lại câu hỏi nối tiếp/không dấu thành câu độc lập trước khi truy hồi (thêm một lượt LLM).
     rewrite_queries: bool = True
     max_history_turns: int = 6  # số lượt hỏi-đáp gần nhất được giữ làm ngữ cảnh
 
-    # API. Để trống = không yêu cầu khóa; đặt giá trị thì mọi endpoint (trừ /health và trang chủ)
-    # yêu cầu header X-API-Key khớp.
+    # API: để trống = không cần khóa; đặt giá trị thì endpoint (trừ /health, trang chủ) cần header X-API-Key.
     api_key: str = ""
 
-    # Đồng thời. Số lượt hỏi được xử lý cùng lúc (semaphore). Mỗi lượt giữ một "slot" suốt vòng đời (cả
-    # streaming), nên đặt bằng OLLAMA_NUM_PARALLEL của Ollama; 1 = tuần tự như trước. Chờ quá
-    # `queue_timeout_seconds`
-    # chưa được nhận thì trả 503 kèm Retry-After thay vì để hàng đợi dài vô hạn.
+    # Đồng thời: số lượt hỏi xử lý cùng lúc (semaphore), nên bằng OLLAMA_NUM_PARALLEL của Ollama.
+    # Chờ quá queue_timeout_seconds thì trả 503 + Retry-After.
     max_concurrent_requests: int = 1
     queue_timeout_seconds: float = 120.0
-    # Thiết bị chạy embedding bge-m3 và reranker: "auto" = GPU nếu torch thấy CUDA, hoặc ép "cpu"/"cuda".
-    # Chạy embedding trên CPU nhường ~2,2 GB VRAM cho Ollama (lúc truy vấn chỉ embed một câu ngắn).
-    # embedding_dtype float16 giảm một nửa VRAM của embedding nhưng điểm cosine lệch nhẹ so với chỉ mục dựng
-    # bằng float32 (reranker luôn fp16 trên GPU).
+    # Thiết bị embedding/reranker: "auto" (GPU nếu có CUDA), "cpu" hoặc "cuda". Embedding trên CPU nhường
+    # ~2,2 GB VRAM cho Ollama; float16 giảm nửa VRAM nhưng điểm cosine lệch nhẹ so với chỉ mục float32.
     embedding_device: Literal["auto", "cpu", "cuda"] = "auto"
     rerank_device: Literal["auto", "cpu", "cuda"] = "auto"
     embedding_dtype: Literal["float32", "float16"] = "float32"

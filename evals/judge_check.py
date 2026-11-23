@@ -1,13 +1,14 @@
-"""Kiểm tra LLM-judge (chấm "trung thực") có đồng ý với người không.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Kiểm tra LLM-judge (chấm "trung thực") có đồng ý với người không.
 
     python -m evals.judge_check build --n 20 --perturbed 10   # chạy pipeline + judge, ghi judge_check.jsonl
     python -m evals.judge_check label                          # bạn chấm tay (f = trung thực, u = không)
     python -m evals.judge_check score                          # độ đồng thuận judge–người (agreement, kappa)
 
-Câu trả lời của mô hình hầu như luôn trung thực với ngữ cảnh, nên nếu chỉ chấm câu thật thì judge trả lời
-"trung thực" cho tất cả và độ đồng thuận cao một cách vô nghĩa. Vì vậy một phần các câu được cố ý làm sai:
-đổi một con số trong câu trả lời (`origin = "perturbed"`). Người chấm không thấy câu nào bị đổi (origin nằm ở
-file riêng `judge_check.origin.json`), judge chấm cả hai loại. Cần ~30 câu có nhãn của người mới đáng tin.
+Một phần câu trả lời bị cố ý đổi một con số (`origin = "perturbed"`, lưu ở file riêng nên người chấm không thấy),
+để độ đồng thuận không cao vô nghĩa chỉ vì mọi câu đều trung thực. Cần ~30 câu có nhãn mới đáng tin.
 """
 
 import argparse

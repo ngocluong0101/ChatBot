@@ -1,3 +1,7 @@
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+"""
+
 from langchain_core.documents import Document
 
 from ragbot import ingest

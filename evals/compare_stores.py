@@ -1,12 +1,12 @@
-"""So sánh kết quả truy hồi của FAISS và Qdrant trên cùng một bộ câu hỏi.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-    python -m evals.compare_stores --questions evals/drafts/draft-001.jsonl \
-        --out evals/reports/final-store-equivalence.json
+So sánh kết quả truy hồi của FAISS và Qdrant trên cùng một bộ câu hỏi.
 
-Không cần nhãn "đúng/sai": hai kho vector là tương đương nếu với cùng câu hỏi chúng trả về CÙNG các đoạn theo
-CÙNG thứ tự và điểm gần như bằng nhau. Đây là phép kiểm tra chặt hơn so sánh độ chính xác (accuracy), vì hai
-kho có thể cùng accuracy mà trả về những đoạn khác nhau. Chỉ so phần truy hồi (dense và hybrid, không reranker
-và không viết lại câu hỏi) vì phần còn lại của pipeline không phụ thuộc vào kho vector.
+    python -m evals.compare_stores --questions evals/drafts/draft-001.jsonl
+
+Hai kho tương đương nếu cùng câu hỏi trả về cùng các đoạn, cùng thứ tự, điểm gần bằng nhau.
+Chỉ so phần truy hồi (dense và hybrid, không reranker, không viết lại câu hỏi).
 """
 
 import argparse

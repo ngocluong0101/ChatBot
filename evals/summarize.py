@@ -1,14 +1,14 @@
-"""Tạo bảng markdown so sánh các báo cáo đánh giá (dùng cho README và ROADMAP).
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Tạo bảng markdown so sánh các báo cáo đánh giá (dùng cho README).
 
     python -m evals.summarize evals/reports/final-*-test.json
     python -m evals.summarize evals/reports/final-*-test.json --out evals/reports/final-ablation.md
     python -m evals.summarize evals/reports/final-*-test.json --readme README.md   # tự điền bảng vào README
 
-`--readme` thay nội dung giữa các cặp dấu `<!-- ablation:start -->`…`<!-- ablation:end -->` (bảng ablation) và
-`<!-- dataset:start -->`…`<!-- dataset:end -->` (thống kê bộ câu hỏi) trong README, để số liệu công bố luôn
-đi thẳng từ file báo cáo/dataset, không chép tay.
-
-Mọi số trong bảng lấy trực tiếp từ các file báo cáo, cột cuối ghi tên file để người đọc đối chiếu.
+`--readme` thay nội dung giữa các cặp `<!-- ablation:start -->`…`<!-- ablation:end -->` và
+`<!-- dataset:start -->`…`<!-- dataset:end -->`. Mọi số lấy trực tiếp từ file báo cáo/dataset.
 """
 
 import argparse

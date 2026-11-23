@@ -1,7 +1,9 @@
-"""BM25 tối giản với tokenizer bỏ dấu tiếng Việt.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-Embedding (bge-m3) kém khi người dùng gõ không dấu ("mat khau toi thieu"), còn so khớp từ khóa trên
-văn bản đã bỏ dấu thì không bị ảnh hưởng. BM25 bổ sung đúng điểm yếu đó cho tìm kiếm vector.
+BM25 tối giản với tokenizer bỏ dấu tiếng Việt.
+
+Embedding (bge-m3) kém với câu gõ không dấu; BM25 trên văn bản đã bỏ dấu bù đúng điểm yếu đó.
 """
 
 import math

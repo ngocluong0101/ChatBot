@@ -1,4 +1,8 @@
-"""Đọc PDF và chia thành các chunk."""
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Đọc PDF và chia thành các chunk.
+"""
 
 import logging
 import re
@@ -108,8 +112,7 @@ def _load_unstructured(docs_dir: Path) -> list[Document]:
     return _clean_unstructured(loader.load())
 
 
-# Tiêu đề mục dạng "3. Quà tặng và tiếp khách". Dấu chấm phải theo sau bởi khoảng trắng nên
-# "1.000.000 VNĐ" không bị nhận nhầm.
+# Tiêu đề mục "3. Quà tặng"; dấu chấm phải theo sau bởi khoảng trắng để không nhận nhầm "1.000.000".
 HEADING_RE = re.compile(r"^(\d{1,2})\.\s+(\S.{1,100})$")
 SENTENCE_END = (".", ":", ";", "!", "?")
 
@@ -129,11 +132,9 @@ def _reflow(lines: list[str]) -> str:
 
 
 def split_sections(doc: Document, settings: Settings) -> list[Document]:
-    """Tách một trang theo mục đánh số. Trả về [] nếu trang không có mục nào (để fallback).
+    """Tách một trang theo mục đánh số; [] nếu không có mục nào (để fallback).
 
-    Mỗi chunk gồm: tên công ty + tiêu đề tài liệu, tiêu đề mục, nội dung mục. Phần tiêu đề được lặp
-    lại ở mọi chunk để embedding/BM25 biết chunk thuộc tài liệu nào (các tài liệu có mục trùng tên,
-    ví dụ "Nghỉ phép", nằm ở nhiều file).
+    Mỗi chunk lặp lại tên công ty + tiêu đề tài liệu để embedding/BM25 biết chunk thuộc file nào.
     """
     lines = [ln.strip() for ln in doc.page_content.splitlines() if ln.strip()]
     heading_idx: list[int] = []

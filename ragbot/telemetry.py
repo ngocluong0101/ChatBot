@@ -1,13 +1,15 @@
-"""Tracing (OpenTelemetry -> Jaeger) và metrics (Prometheus, endpoint /metrics) cho pipeline.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-Mọi thứ đều TẮT được và không làm gì khi tắt:
-  * tracing: `RAG_TRACING_ENABLED=true` + `RAG_OTLP_ENDPOINT=http://jaeger:4318`; tắt thì span là no-op.
-  * metrics: `RAG_METRICS_ENABLED=false` để không tạo bộ đếm nào.
+Tracing (OpenTelemetry -> Jaeger) và metrics (Prometheus, /metrics) cho pipeline.
 
-Mỗi bước của pipeline (viết lại câu hỏi, truy hồi, từng nhánh trong truy hồi, LLM) đi qua `Telemetry.stage`:
-một span + một mẫu vào histogram `ragbot_stage_seconds{stage=...}`. Span KHÔNG dùng context "hiện hành" của
-OpenTelemetry (không `attach`): generator của /chat/stream được Starlette chạy rải rác trên nhiều thread,
-gắn/gỡ context giữa các thread sẽ lỗi, nên span cha được truyền tường minh.
+Cả hai đều TẮT được và không làm gì khi tắt:
+  * tracing: `RAG_TRACING_ENABLED=true` + `RAG_OTLP_ENDPOINT=http://jaeger:4318`.
+  * metrics: `RAG_METRICS_ENABLED=false`.
+
+Mỗi bước của pipeline đi qua `Telemetry.stage`: một span + một mẫu vào histogram
+`ragbot_stage_seconds{stage=...}`. Span cha được truyền tường minh, không dùng context "hiện hành" của
+OpenTelemetry vì generator SSE chạy rải rác trên nhiều thread.
 """
 
 import logging
@@ -47,8 +49,7 @@ class Stage:
 class UsageRecorder:
     """Callback LangChain gắn vào ChatOllama: giữ số token của lượt sinh vừa xong, tách theo thread.
 
-    `StrOutputParser` ở cuối chuỗi làm mất `usage_metadata`, nên đọc nó ở đây. Lời gọi sync chạy
-    callback trên chính thread gọi `.invoke()` / `next()`, nên `pop()` ngay sau lời gọi là an toàn.
+    `StrOutputParser` làm mất `usage_metadata` nên đọc ở đây; `pop()` ngay sau lời gọi là an toàn.
     """
 
     def __init__(self) -> None:

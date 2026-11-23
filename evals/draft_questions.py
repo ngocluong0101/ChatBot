@@ -1,17 +1,17 @@
-"""Soạn NHÁP câu hỏi đánh giá bằng LLM local (Ollama) từ các chunk của corpus.
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Soạn NHÁP câu hỏi đánh giá bằng LLM local (Ollama) từ các chunk của corpus.
 
     python -m evals.draft_questions --out evals/drafts/draft-001.jsonl
     python -m evals.draft_questions --counts factoid=10,paraphrase=5 --out /tmp/thu.jsonl   # chạy thử nhỏ
 
-Mọi câu sinh ra đều có `verified=false`: bạn duyệt tay bằng `python -m evals.review`, và chỉ câu đã duyệt
-mới được dùng để báo cáo. LLM chỉ viết CÂU HỎI và các CỤM ĐÁP ÁN; phần còn lại do code đảm bảo:
-  * mỗi cụm đáp án phải xuất hiện nguyên văn trong đoạn gốc (nếu không, bỏ câu);
-  * `evidence` do code cắt nguyên văn từ đoạn gốc quanh cụm đáp án (LLM hay diễn đạt lại nên không tin);
-  * câu hỏi không chứa sẵn đáp án, không trùng câu đã có, và đáp án không nằm sẵn ở một văn bản khác
-    (nếu có, câu hỏi mơ hồ giữa hai văn bản nên bỏ).
+Mọi câu đều có `verified=false`, phải duyệt tay bằng `python -m evals.review`. LLM chỉ viết câu hỏi và
+cụm đáp án; code kiểm tra cụm đáp án có nguyên văn trong đoạn gốc, tự cắt `evidence`, và loại câu chứa sẵn
+đáp án, câu trùng hoặc câu mơ hồ giữa hai văn bản.
 
-Loại câu hỏi: factoid, paraphrase, no_diacritics (factoid bỏ dấu), multi_source (ghép hai đoạn), table,
-cộng hai nhóm KHÔNG có đáp án: near_domain (gần chủ đề nhưng tài liệu không có) và off_topic.
+Loại câu: factoid, paraphrase, no_diacritics, multi_source, table, và hai nhóm không có đáp án
+(near_domain, off_topic).
 """
 
 import argparse
@@ -117,8 +117,7 @@ Chỉ trả về JSON, không giải thích:
 {chunk_b}
 """
 
-# Câu gần chủ đề nhưng 8 văn bản trong corpus KHÔNG trả lời. `terms`: các cụm dùng để rà soát corpus; nếu có
-# đoạn chứa tất cả các cụm đó thì câu bị gắn cảnh báo để bạn kiểm tra lại. Bạn là người quyết định cuối cùng.
+# Câu gần chủ đề nhưng corpus KHÔNG trả lời; `terms` dùng để rà corpus, trùng đủ cụm thì gắn cảnh báo.
 NEAR_DOMAIN_SEEDS: list[tuple[str, list[str]]] = [
     ("Mức lương tối thiểu vùng I hiện nay là bao nhiêu đồng một tháng?", ["vùng I", "đồng/tháng"]),
     (
@@ -270,10 +269,9 @@ def short_enough(phrase: str) -> bool:
 
 
 def clean_groups(value: Any) -> list[list[str]]:
-    """answer_keys do LLM trả về -> danh sách nhóm các cụm NGẮN, không rỗng.
+    """answer_keys của LLM -> các nhóm cụm NGẮN, không rỗng.
 
-    Cụm dài bị bỏ; nhóm nào không còn cụm nào thì loại luôn cả đáp án (trả về []), vì giữ lại các nhóm còn
-    lại sẽ lặng lẽ hạ yêu cầu của câu hỏi.
+    Nhóm hết cụm thì bỏ cả đáp án (trả []), tránh âm thầm hạ yêu cầu của câu hỏi.
     """
     groups = []
     for group in value if isinstance(value, list) else []:
@@ -639,7 +637,7 @@ def row_problem(row: dict[str, Any]) -> str | None:
 def make_llm(settings: Settings) -> LLMFn:
     from langchain_ollama import ChatOllama
 
-    # num_predict + timeout: ở chế độ JSON mô hình có thể sinh vô hạn khoảng trắng và treo cả đợt soạn nháp.
+    # num_predict + timeout: chế độ JSON có thể sinh vô hạn và treo cả đợt soạn.
     llm = ChatOllama(
         model=settings.llm_model,
         temperature=0.4,

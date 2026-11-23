@@ -1,7 +1,10 @@
-"""Thông tin về từng văn bản trong corpus (tên, số hiệu, ngày ban hành/hiệu lực, link nguồn).
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-Nguồn dữ liệu duy nhất là bảng markdown trong `data/SOURCES.md`: vừa để người đọc kiểm chứng
-nguồn gốc, vừa để code lấy tên hiển thị dùng trong trích dẫn ("Bộ luật Lao động 2019, Điều 113").
+Thông tin từng văn bản trong corpus (tên, số hiệu, ngày ban hành/hiệu lực, link nguồn).
+
+Nguồn duy nhất là bảng markdown `data/SOURCES.md`: người đọc kiểm chứng nguồn gốc, code lấy tên hiển thị dùng
+trong trích dẫn ("Bộ luật Lao động 2019, Điều 113").
 """
 
 import logging
@@ -66,10 +69,9 @@ def _split_row(line: str) -> list[str]:
 
 
 def parse_sources(text: str) -> dict[str, DocInfo]:
-    """Đọc bảng markdown; trả về {tên file: DocInfo}. Dòng không phải bảng (kể cả comment) bị bỏ qua.
+    """Đọc bảng markdown; trả về {tên file: DocInfo}. Dòng không phải bảng bị bỏ qua.
 
-    Cột nhận theo tên tiêu đề (không phân biệt dấu/hoa thường) nên thứ tự cột tùy ý; bắt buộc có
-    "File" và "Tên văn bản". Hàng thiếu một trong hai bị bỏ qua.
+    Cột nhận theo tên tiêu đề (không phân biệt dấu/hoa thường); bắt buộc có "File" và "Tên văn bản".
     """
     columns: dict[str, int] = {}
     result: dict[str, DocInfo] = {}

@@ -1,3 +1,7 @@
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+"""
+
 from pathlib import Path
 
 from langchain_core.embeddings import DeterministicFakeEmbedding

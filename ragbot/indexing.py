@@ -1,12 +1,12 @@
-"""Dựng và cache chỉ mục vector (Qdrant mặc định, FAISS để chạy nhanh không cần Docker).
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
 
-Embedding toàn bộ chunk bằng bge-m3 trên CPU rất chậm, nên chỉ mục được lưu xuống đĩa và dùng lại:
+Dựng và cache chỉ mục vector (Qdrant mặc định, FAISS để chạy nhanh không cần Docker).
 
-  * Qdrant (`sync_store`): mỗi file PDF có một hash riêng (nội dung file + dòng của nó trong SOURCES.md +
-    tham số chunking/embedding). Mỗi lần khởi động chỉ file mới, đổi hoặc bị xoá mới phải xử lý; các file
-    còn lại giữ nguyên chunk và embedding đã có. Không dùng pickle.
-  * FAISS (`_load_or_build_faiss`): một fingerprint cho cả thư mục; đổi một file là dựng lại tất cả, và lưu
-    bằng pickle (chỉ nạp thư mục do chính ứng dụng ghi ra).
+  * Qdrant (`sync_store`): mỗi file PDF có hash riêng (nội dung, dòng trong SOURCES.md, tham số
+    chunking/embedding); mỗi lần khởi động chỉ xử lý file mới, đổi hoặc bị xoá. Không dùng pickle.
+  * FAISS (`_load_or_build_faiss`): một fingerprint cho cả thư mục, đổi một file là dựng lại tất cả; lưu bằng
+    pickle (chỉ nạp thư mục do chính ứng dụng ghi ra).
 """
 
 import hashlib
@@ -31,14 +31,12 @@ from ragbot.vectorstore import QdrantStore
 
 logger = logging.getLogger(__name__)
 
-# Tăng số này khi đổi logic đọc/chia tài liệu mà fingerprint không phản ánh được
-# (ví dụ đổi separators, đổi loader) để buộc mọi cache cũ bị rebuild.
+# Tăng số này khi đổi logic đọc/chia tài liệu mà fingerprint không thấy, để buộc rebuild mọi cache cũ.
 INDEX_SCHEMA_VERSION = 3  # v3: metadata văn bản pháp luật (Điều/Khoản), bộ đọc pdfplumber
 
 META_FILENAME = "meta.json"
-# normalize_embeddings=True + MAX_INNER_PRODUCT => điểm trả về chính là cosine similarity.
-# (DistanceStrategy.COSINE của LangChain thực chất dùng IndexFlatL2 và công thức 1 - distance,
-# nên điểm không phải cosine thật và có thể âm.)
+# normalize_embeddings=True + MAX_INNER_PRODUCT => điểm trả về là cosine thật
+# (DistanceStrategy.COSINE của LangChain dùng L2 nên không phải cosine).
 DISTANCE_STRATEGY = DistanceStrategy.MAX_INNER_PRODUCT
 
 
@@ -92,8 +90,8 @@ def _try_load_cached(index_dir: Path, fingerprint: str, embeddings: Embeddings) 
         if meta.get("fingerprint") != fingerprint:
             logger.info("Tài liệu hoặc cấu hình đã thay đổi, sẽ dựng lại index")
             return None
-        # allow_dangerous_deserialization: FAISS.load_local dùng pickle. Chấp nhận được ở đây vì
-        # index_dir do chính ứng dụng ghi ra; KHÔNG trỏ nó tới thư mục không tin cậy.
+        # FAISS.load_local dùng pickle: chấp nhận được vì index_dir do chính ứng dụng ghi, KHÔNG
+        # trỏ tới nơi không tin cậy.
         return FAISS.load_local(
             str(index_dir),
             embeddings,
@@ -148,8 +146,10 @@ class SyncReport:
 
 
 def file_hashes(settings: Settings, pdfs: list[Path]) -> dict[str, str]:
-    """Hash hiệu lực của từng file: đổi nội dung file, dòng của nó trong SOURCES.md (khi chunking="legal")
-    hoặc bất kỳ tham số ảnh hưởng chunk/embedding đều làm đổi hash, chỉ file bị ảnh hưởng mới nạp lại."""
+    """Hash hiệu lực của từng file (nội dung, dòng trong SOURCES.md khi "legal", tham số chunk/embedding).
+
+    Chỉ file bị ảnh hưởng mới nạp lại.
+    """
     params = (
         f"schema={INDEX_SCHEMA_VERSION};embedding={settings.embedding_model};chunking={settings.chunking};"
         f"chunk_size={settings.chunk_size};chunk_overlap={settings.chunk_overlap};"
@@ -209,10 +209,7 @@ def sync_store(settings: Settings, store: QdrantStore) -> SyncReport:
 
 
 def load_or_build_index(settings: Settings, embeddings: Embeddings | None = None, client=None):
-    """Mở chỉ mục theo `settings.vector_store`, dựng hoặc cập nhật nếu tài liệu đã đổi.
-
-    Trả về đối tượng có `similarity_search_with_score(query, k)`; liệt kê chunk bằng `vectorstore.all_chunks`.
-    """
+    """Mở chỉ mục theo `settings.vector_store`, dựng hoặc cập nhật nếu tài liệu đã đổi."""
     embeddings = embeddings or create_embeddings(settings)
     if settings.vector_store == "faiss":
         return _load_or_build_faiss(settings, embeddings)

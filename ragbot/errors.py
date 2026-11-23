@@ -1,4 +1,8 @@
-"""Các lỗi nghiệp vụ mà CLI/API có thể bắt và hiển thị thân thiện cho người dùng."""
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Các lỗi nghiệp vụ mà CLI/API có thể bắt và hiển thị thân thiện cho người dùng.
+"""
 
 
 class RagError(Exception):

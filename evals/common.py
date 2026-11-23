@@ -1,4 +1,8 @@
-"""Hàm dùng chung cho các công cụ trong evals/: đọc/ghi JSONL, chia dev/test cố định bằng seed."""
+"""
+@author: Ngoc Luong <ngocluongg0101@gmail.com>
+
+Hàm dùng chung cho các công cụ trong evals/: đọc/ghi JSONL, chia dev/test cố định bằng seed.
+"""
 
 import json
 import random
@@ -30,11 +34,9 @@ def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
 def assign_splits(
     rows: Sequence[dict[str, Any]], seed: int = SPLIT_SEED, ratio_dev: float = 0.5
 ) -> dict[str, str]:
-    """Gán dev/test cho từng id, cân bằng theo category, cố định bằng seed.
+    """Gán dev/test theo category, cố định bằng seed.
 
-    Câu đã có split giữ nguyên (split không được đổi sau khi đã chia, nếu không tập test bị lộ vào
-    quá trình chọn ngưỡng). Câu mới được xếp để mỗi category gần 50/50 tính cả các câu đã có.
-    Kết quả không phụ thuộc thứ tự dòng đầu vào.
+    Câu đã có split giữ nguyên (đổi split sẽ làm lộ tập test vào bước chọn ngưỡng).
     """
     result = {row["id"]: row["split"] for row in rows if row.get("split")}
     by_category: dict[str, list[dict[str, Any]]] = defaultdict(list)
