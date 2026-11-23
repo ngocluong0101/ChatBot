@@ -5,7 +5,7 @@ quan trọng nhất của chatbot.
 
 ## 1. Kịch bản: ba câu hỏi
 
-Mở giao diện web ở http://localhost:8000 (xem mục "Chuẩn bị: bộ văn bản pháp luật" trong README) và hỏi lần lượt:
+Mở giao diện web ở http://localhost:8000 (xem mục "Bắt đầu nhanh" trong README) và hỏi lần lượt:
 
 | # | Câu hỏi | Hành vi cần thể hiện | Kết quả đã kiểm tra (2026-11-21, chạy 2 lượt cho kết quả giống nhau) |
 |---|---|---|---|

@@ -237,7 +237,7 @@ def test_main_updates_both_readme_blocks(tmp_path: Path):
     assert "| X | 0.800 [0.70–0.90]" in text and "| **Tổng** |" in text and "cũ" not in text
 
 
-def test_the_real_readme_has_the_marker_pairs_the_tool_updates():
-    readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
-    for name in ("ablation", "dataset", "indextiming", "equivalence"):
+def test_the_details_doc_has_the_marker_pairs_the_tools_update():
+    readme = (Path(__file__).resolve().parent.parent / "docs" / "chi-tiet.md").read_text(encoding="utf-8")
+    for name in ("ablation", "dataset", "indextiming", "equivalence", "perf", "perfprobe"):
         assert f"<!-- {name}:start -->" in readme and f"<!-- {name}:end -->" in readme
